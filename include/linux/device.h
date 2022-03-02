@@ -1176,6 +1176,11 @@ struct device {
 	struct cma *cma_area;		/* contiguous memory area for dma
 					   allocations */
 #endif
+#ifdef CONFIG_PPC
+#ifndef __GENKSYMS__
+	bool			dma_ops_bypass : 1;
+#endif
+#endif
 	/* arch specific additions */
 	struct dev_archdata	archdata;
 
@@ -1206,9 +1211,6 @@ struct device {
     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU) || \
     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU_ALL)
 	bool			dma_coherent:1;
-#endif
-#ifdef CONFIG_DMA_OPS_BYPASS
-	bool			dma_ops_bypass : 1;
 #endif
 	void			*suse_kabi_padding;
 };
