@@ -1929,6 +1929,7 @@ static struct worker *create_worker(struct worker_pool *pool)
 		goto fail;
 
 	worker->id = id;
+	init_completion(&worker->ready_to_start);
 
 	if (pool->cpu >= 0)
 		snprintf(id_buf, sizeof(id_buf), "%d:%d%s", pool->cpu, id,
@@ -1952,6 +1953,7 @@ static struct worker *create_worker(struct worker_pool *pool)
 	worker->pool->nr_workers++;
 	worker_enter_idle(worker);
 	kworker_set_sched_params(worker->task);
+	complete(&worker->ready_to_start);
 	wake_up_process(worker->task);
 	raw_spin_unlock_irq(&pool->lock);
 
@@ -2368,10 +2370,18 @@ static void set_pf_worker(bool val)
 static int worker_thread(void *__worker)
 {
 	struct worker *worker = __worker;
-	struct worker_pool *pool = worker->pool;
+	struct worker_pool *pool;
 
 	/* tell the scheduler that this is a workqueue worker */
 	set_pf_worker(true);
+
+	/*
+	 * Wait until the worker is ready to get started. It must be attached
+	 * to a pool first. This is needed because of spurious wakeups.
+	 */
+	wait_for_completion(&worker->ready_to_start);
+	pool = worker->pool;
+
 woke_up:
 	raw_spin_lock_irq(&pool->lock);
 
