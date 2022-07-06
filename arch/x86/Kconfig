@@ -442,6 +442,9 @@ config SLS
 	  against straight line speculation. The kernel image might be slightly
 	  larger.
 
+config CC_HAS_RETURN_THUNK
+       def_bool y
+
 config X86_CPU_RESCTRL
 	bool "x86 CPU resource control support"
 	depends on X86 && (CPU_SUP_INTEL || CPU_SUP_AMD)
