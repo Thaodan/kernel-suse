@@ -3,7 +3,6 @@
  *
  * Copyright 2000-2002 Andi Kleen, SuSE Labs.
  */
-#include "calling.h"
 #include <asm/asm-offsets.h>
 #include <asm/current.h>
 #include <asm/errno.h>
@@ -16,6 +15,8 @@
 #include <asm/nospec-branch.h>
 #include <linux/linkage.h>
 #include <linux/err.h>
+
+#include "calling.h"
 
 	.section .entry.text, "ax"
 
@@ -54,8 +55,6 @@ ENTRY(entry_SYSENTER_compat)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp
 
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
-	/* Restrict Indirect Branch Speculation */
-	RESTRICT_IB_SPEC
 
 	/*
 	 * User tracing code (ptrace or signal handlers) might assume that
@@ -108,6 +107,8 @@ ENTRY(entry_SYSENTER_compat)
 	xorl	%r15d, %r15d		/* nospec   r15 */
 	cld
 
+
+	RESTRICT_IB_SPEC
 	UNTRAIN_RET
 
 	/*
@@ -250,7 +251,6 @@ GLOBAL(entry_SYSCALL_compat_after_hwframe)
 
 	/* Restrict Indirect Branch Speculation. All registers are saved already */
 	RESTRICT_IB_SPEC_CLOBBER
-
 	UNTRAIN_RET
 
 	/* User mode is traced as though IRQs are on, and SYSENTER

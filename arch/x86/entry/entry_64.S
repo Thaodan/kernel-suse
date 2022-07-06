@@ -215,8 +215,6 @@ ENTRY(entry_SYSCALL_64)
 	 */
 	movq	%rsp, PER_CPU_VAR(rsp_scratch)
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
-	/* Restrict Indirect Branch Speculation */
-	RESTRICT_IB_SPEC
 
 	/* Construct struct pt_regs on stack */
 	pushq	$__USER_DS			/* pt_regs->ss */
@@ -233,6 +231,9 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 
 	/* IRQs are off. */
 	movq	%rsp, %rdi
+
+	/* Restrict Indirect Branch Speculation */
+	RESTRICT_IB_SPEC
 
 	UNTRAIN_RET
 
@@ -1195,6 +1196,7 @@ ENTRY(paranoid_entry)
 	SAVE_AND_SWITCH_TO_KERNEL_CR3 scratch_reg=%rax save_reg=%r14
 	/* Restrict Indirect Branch speculation */
 	RESTRICT_IB_SPEC_SAVE_AND_CLOBBER save_reg=%r13d
+	UNTRAIN_RET
 	/*
 	 * The above SAVE_AND_SWITCH_TO_KERNEL_CR3 macro doesn't do an
 	 * unconditional CR3 write, even in the PTI case.  So do an lfence
@@ -1423,10 +1425,6 @@ ENTRY(nmi)
 	movq	%rsp, %rdx
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
 
-	/* Restrict Indirect Branch Speculation */
-	RESTRICT_IB_SPEC
-	UNTRAIN_RET
-
 	UNWIND_HINT_IRET_REGS base=%rdx offset=8
 	pushq	5*8(%rdx)	/* pt_regs->ss */
 	pushq	4*8(%rdx)	/* pt_regs->rsp */
@@ -1437,6 +1435,10 @@ ENTRY(nmi)
 	pushq   $-1		/* pt_regs->orig_ax */
 	PUSH_AND_CLEAR_REGS rdx=(%rdx)
 	ENCODE_FRAME_POINTER
+
+	/* Restrict Indirect Branch Speculation */
+	RESTRICT_IB_SPEC
+	UNTRAIN_RET
 
 	/*
 	 * At this point we no longer need to worry about stack damage
