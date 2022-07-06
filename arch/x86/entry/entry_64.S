@@ -884,7 +884,7 @@ ENTRY(switch_to_thread_stack)
 	UNWIND_HINT_FUNC
 
 	movq	(%rdi), %rdi
-	ret
+	RET
 END(switch_to_thread_stack)
 
 .macro idtentry sym do_sym has_error_code:req paranoid=0 shift_ist=-1 create_gap=0
@@ -1018,7 +1018,7 @@ ENTRY(native_load_gs_index)
 	SWAPGS
 	popfq
 	FRAME_END
-	ret
+	RET
 ENDPROC(native_load_gs_index)
 EXPORT_SYMBOL(native_load_gs_index)
 
@@ -1267,13 +1267,13 @@ ENTRY(error_entry)
 	 */
 	TRACE_IRQS_OFF
 	CALL_enter_from_user_mode
-	ret
+	RET
 
 .Lerror_entry_done_lfence:
 	FENCE_SWAPGS_KERNEL_ENTRY
 .Lerror_entry_done:
 	TRACE_IRQS_OFF
-	ret
+	RET
 
 	/*
 	 * There are two places in the kernel that can potentially fault with
