@@ -14,6 +14,7 @@
 #include <asm/irqflags.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/nospec-branch.h>
 #include <linux/linkage.h>
 #include <linux/err.h>
 
@@ -105,6 +106,8 @@ ENTRY(entry_SYSENTER_compat)
 	pushq   $0			/* pt_regs->r15 = 0 */
 	xorl	%r15d, %r15d		/* nospec   r15 */
 	cld
+
+	UNTRAIN_RET
 
 	/*
 	 * SYSENTER doesn't filter flags, so we need to clear NT and AC
