@@ -410,7 +410,7 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
 		 */
 		writel(0xffffffff, ioaddr + GMAC_HASH_TAB_0_31);
 		writel(0xffffffff, ioaddr + GMAC_HASH_TAB_32_63);
-	} else if (!netdev_mc_empty(dev)) {
+	} else if (!netdev_mc_empty(dev) && (dev->flags & IFF_MULTICAST)) {
 		u32 mc_filter[2];
 		struct netdev_hw_addr *ha;
 
