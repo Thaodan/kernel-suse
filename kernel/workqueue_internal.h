@@ -40,6 +40,7 @@ struct worker {
 						/* L: for rescuers */
 	struct list_head	node;		/* A: anchored at pool->workers */
 						/* A: runs through worker->node */
+	struct completion	ready_to_start;	/* None: handle spurious wakeup */
 
 	unsigned long		last_active;	/* L: last active timestamp */
 	unsigned int		flags;		/* X: flags */

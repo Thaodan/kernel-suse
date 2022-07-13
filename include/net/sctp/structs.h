@@ -1343,6 +1343,7 @@ struct sctp_endpoint {
 
 	u32 secid;
 	u32 peer_secid;
+	struct rcu_head rcu;
 };
 
 /* Recover the outter endpoint structure. */
