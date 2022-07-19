@@ -1374,13 +1374,10 @@ static void __init spectre_v2_select_mitigation(void)
 		return;
 
 	case SPECTRE_V2_CMD_IBRS:
-		if (boot_cpu_has(X86_FEATURE_IBRS)) {
-			mode = SPECTRE_V2_IBRS;
-			setup_force_cpu_cap(X86_FEATURE_USE_IBRS);
-			goto specv2_set_mode;
-		}
+		mode = SPECTRE_V2_IBRS;
+		setup_force_cpu_cap(X86_FEATURE_USE_IBRS);
+		goto specv2_set_mode;
 
-		/* fall through */
 	case SPECTRE_V2_CMD_FORCE:
 	case SPECTRE_V2_CMD_AUTO:
 		if (boot_cpu_has(X86_FEATURE_IBRS_ENHANCED)) {
