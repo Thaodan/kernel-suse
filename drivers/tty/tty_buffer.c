@@ -561,7 +561,7 @@ bool tty_buffer_queue_work(struct tty_port *port)
 
 void tty_buffer_init_kthread(void)
 {
-	struct sched_param param = { .sched_priority = 1 };
+	struct sched_param param = { .sched_priority = MAX_USER_RT_PRIO / 2 };
 	struct task_struct *kworker_task;
 
 	kworker_task = kthread_run(kthread_worker_fn, &tty_buffer_worker, "tty");
