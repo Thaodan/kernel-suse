@@ -13,11 +13,13 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/sched/rt.h>
 #include <linux/wait.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/ratelimit.h>
+#include <uapi/linux/sched/types.h>
 
 
 #define MIN_TTYB_SIZE	256
@@ -559,7 +561,15 @@ bool tty_buffer_queue_work(struct tty_port *port)
 
 void tty_buffer_init_kthread(void)
 {
-	kthread_run(kthread_worker_fn, &tty_buffer_worker, "tty");
+	struct sched_param param = { .sched_priority = 1 };
+	struct task_struct *kworker_task;
+
+	kworker_task = kthread_run(kthread_worker_fn, &tty_buffer_worker, "tty");
+	if (IS_ERR(kworker_task)) {
+		pr_err("failed to create message pump task\n");
+		return;
+	}
+	sched_setscheduler(kworker_task, SCHED_FIFO, &param);
 }
 
 /**
