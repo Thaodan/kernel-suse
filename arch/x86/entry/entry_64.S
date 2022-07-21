@@ -155,7 +155,6 @@ ENTRY(entry_SYSCALL_64)
 	movq	%rsp, PER_CPU_VAR(cpu_tss_rw + TSS_sp2)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
-	UNTRAIN_RET
 
 	/* Construct struct pt_regs on stack */
 	pushq	$__USER_DS				/* pt_regs->ss */
@@ -255,8 +254,7 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 	 */
 syscall_return_via_sysret:
 	IBRS_EXIT
-	/* rcx and r11 are already restored (see code above) */
-	POP_REGS pop_rdi=0 skip_r11rcx=1
+	POP_REGS pop_rdi=0
 
 	/*
 	 * Now all regs are restored except RSP and RDI.
@@ -335,6 +333,9 @@ ENDPROC(__switch_to_asm)
  * rax: prev task we switched from
  * rbx: kernel thread func (NULL for user thread)
  * r12: kernel thread arg
+ *
+ * R14 - old CR3
+ * R15 - old SPEC_CTRL
  */
 ENTRY(ret_from_fork)
 	UNWIND_HINT_EMPTY
@@ -539,9 +540,6 @@ ENTRY(interrupt_entry)
 	movq	%rsp, %rdi
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
 
-	IBRS_ENTER
-	UNTRAIN_RET
-
 	 /*
 	  * We have RDI, return address, and orig_ax on the stack on
 	  * top of the IRET frame. That means offset=24
@@ -587,7 +585,7 @@ ENTRY(interrupt_entry)
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
 
-	RET
+	ret
 END(interrupt_entry)
 _ASM_NOKPROBE(interrupt_entry)
 
@@ -1229,7 +1227,8 @@ idtentry machine_check		do_mce			has_error_code=0	paranoid=1
 /*
  * Save all registers in pt_regs, and switch gs if needed.
  * Use slow, but surefire "are we in kernel?" check.
- * Return: ebx=0: need swapgs on exit, ebx=1: otherwise+ *
+ * Return: ebx=0: need swapgs on exit, ebx=1: otherwise
+ *
  * R14 - old CR3
  * R15 - old SPEC_CTRL
  */
@@ -1273,7 +1272,7 @@ ENTRY(paranoid_entry)
 	IBRS_ENTER save_reg=%r15
 	UNTRAIN_RET
 
-	RET
+        RET
 END(paranoid_entry)
 
 /*
@@ -1293,11 +1292,6 @@ END(paranoid_entry)
  */
 ENTRY(paranoid_exit)
 	UNWIND_HINT_REGS
-	DISABLE_INTERRUPTS(CLBR_ANY)
-	TRACE_IRQS_OFF_DEBUG
-	testl	%ebx, %ebx			/* swapgs needed? */
-	jnz	.Lparanoid_exit_no_swapgs
-	TRACE_IRQS_IRETQ
 
 	/*
 	 * Must restore IBRS state before both CR3 and %GS since we need access
@@ -1305,6 +1299,11 @@ ENTRY(paranoid_exit)
 	 */
 	IBRS_EXIT save_reg=%r15
 
+	DISABLE_INTERRUPTS(CLBR_ANY)
+	TRACE_IRQS_OFF_DEBUG
+	testl	%ebx, %ebx			/* swapgs needed? */
+	jnz	.Lparanoid_exit_no_swapgs
+	TRACE_IRQS_IRETQ
 	/* Always restore stashed CR3 value (see paranoid_entry) */
 	RESTORE_CR3	scratch_reg=%rbx save_reg=%r14
 	SWAPGS_UNSAFE_STACK
@@ -1340,7 +1339,6 @@ ENTRY(error_entry)
 	UNTRAIN_RET
 
 .Lerror_entry_from_usermode_after_swapgs:
-
 	/* Put us onto the real thread stack. */
 	popq	%r12				/* save return addr in %12 */
 	movq	%rsp, %rdi			/* arg0 = pt_regs pointer */
@@ -1379,6 +1377,9 @@ ENTRY(error_entry)
 	SWAPGS
 	FENCE_SWAPGS_USER_ENTRY
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rax
+	IBRS_ENTER
+	UNTRAIN_RET
+
 	jmp .Lerror_entry_done
 
 .Lbstep_iret:
@@ -1394,8 +1395,6 @@ ENTRY(error_entry)
 	SWAPGS
 	FENCE_SWAPGS_USER_ENTRY
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rax
-	IBRS_ENTER
-	UNTRAIN_RET
 
 	/*
 	 * Pretend that the exception came from user mode: set up pt_regs
