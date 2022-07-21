@@ -324,11 +324,6 @@ For 32-bit we have the following conventions - kernel is built with
  */
 .macro IBRS_ENTER save_reg
 	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_KERNEL_IBRS
-
-	push %rax
-	push %rcx
-	push %rdx
-
 	movl	$MSR_IA32_SPEC_CTRL, %ecx
 
 .ifnb \save_reg
@@ -347,11 +342,6 @@ For 32-bit we have the following conventions - kernel is built with
 	movl	%edx, %eax
 	shr	$32, %rdx
 	wrmsr
-
-	pop %rdx
-	pop %rcx
-	pop %rax
-
 .Lend_\@:
 .endm
 
@@ -361,11 +351,6 @@ For 32-bit we have the following conventions - kernel is built with
  */
 .macro IBRS_EXIT save_reg
 	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_KERNEL_IBRS
-
-	push %rax
-	push %rcx
-	push %rdx
-
 	movl	$MSR_IA32_SPEC_CTRL, %ecx
 
 .ifnb \save_reg
@@ -378,11 +363,6 @@ For 32-bit we have the following conventions - kernel is built with
 	movl	%edx, %eax
 	shr	$32, %rdx
 	wrmsr
-
-	pop %rdx
-	pop %rcx
-	pop %rax
-
 .Lend_\@:
 .endm
 

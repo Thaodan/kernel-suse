@@ -108,10 +108,8 @@ ENTRY(entry_SYSENTER_compat)
 	xorl	%r15d, %r15d		/* nospec   r15 */
 	cld
 
-
 	IBRS_ENTER
 	UNTRAIN_RET
-
 	/*
 	 * SYSENTER doesn't filter flags, so we need to clear NT and AC
 	 * ourselves.  To save a few cycles, we can check whether
@@ -258,6 +256,9 @@ GLOBAL(entry_SYSCALL_compat_after_hwframe)
 	 * turned them off.
 	 */
 	TRACE_IRQS_OFF
+
+	IBRS_ENTER
+	UNTRAIN_RET
 
 	movq	%rsp, %rdi
 	call	do_fast_syscall_32
@@ -416,6 +417,9 @@ ENTRY(entry_INT80_compat)
 	 * gate turned them off.
 	 */
 	TRACE_IRQS_OFF
+
+	IBRS_ENTER
+	UNTRAIN_RET
 
 	movq	%rsp, %rdi
 	call	do_int80_syscall_32
