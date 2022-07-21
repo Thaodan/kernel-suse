@@ -545,9 +545,10 @@ struct css_set init_css_set = {
 	.mg_tasks		= LIST_HEAD_INIT(init_css_set.mg_tasks),
 	.task_iters		= LIST_HEAD_INIT(init_css_set.task_iters),
 	.cgrp_links		= LIST_HEAD_INIT(init_css_set.cgrp_links),
+	.mg_preload_node	= LIST_HEAD_INIT(init_css_set.mg_preload_node),
+	.mg_node		= LIST_HEAD_INIT(init_css_set.mg_node),
 	.mg_src_preload_node	= LIST_HEAD_INIT(init_css_set.mg_src_preload_node),
 	.mg_dst_preload_node	= LIST_HEAD_INIT(init_css_set.mg_dst_preload_node),
-	.mg_node		= LIST_HEAD_INIT(init_css_set.mg_node),
 };
 
 static int css_set_count	= 1;	/* 1 for init_css_set */
@@ -970,9 +971,10 @@ static struct css_set *find_css_set(struct css_set *old_cset,
 	INIT_LIST_HEAD(&cset->task_iters);
 	INIT_HLIST_NODE(&cset->hlist);
 	INIT_LIST_HEAD(&cset->cgrp_links);
+	INIT_LIST_HEAD(&cset->mg_preload_node);
+	INIT_LIST_HEAD(&cset->mg_node);
 	INIT_LIST_HEAD(&cset->mg_src_preload_node);
 	INIT_LIST_HEAD(&cset->mg_dst_preload_node);
-	INIT_LIST_HEAD(&cset->mg_node);
 
 	/* Copy the set of subsystem state objects generated in
 	 * find_existing_css_set() */
