@@ -18,11 +18,13 @@ struct iommu_table;
  * drivers/macintosh/macio_asic.c
  */
 struct dev_archdata {
+#ifdef __GENKSYMS__
 	/*
 	 * Set to %true if the dma_iommu_ops are requested to use a direct
 	 * window instead of dynamically mapping memory.
 	 */
 	bool			iommu_bypass : 1;
+#endif
 	/*
 	 * These two used to be a union. However, with the hybrid ops we need
 	 * both so here we store both a DMA offset for direct mappings and
