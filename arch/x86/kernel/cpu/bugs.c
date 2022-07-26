@@ -936,8 +936,6 @@ do_cmd_auto:
 		if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
 		    boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
 			retbleed_mitigation = RETBLEED_MITIGATION_UNRET;
-		else if (boot_cpu_has(X86_FEATURE_IBPB))
-			retbleed_mitigation = RETBLEED_MITIGATION_IBPB;
 
 		/*
 		 * The Intel mitigation (IBRS or eIBRS) was already selected in
@@ -1374,13 +1372,10 @@ static void __init spectre_v2_select_mitigation(void)
 		return;
 
 	case SPECTRE_V2_CMD_IBRS:
-		if (boot_cpu_has(X86_FEATURE_IBRS)) {
-			mode = SPECTRE_V2_IBRS;
-			setup_force_cpu_cap(X86_FEATURE_USE_IBRS);
-			goto specv2_set_mode;
-		}
+		mode = SPECTRE_V2_IBRS;
+		setup_force_cpu_cap(X86_FEATURE_USE_IBRS);
+		goto specv2_set_mode;
 
-		/* fall through */
 	case SPECTRE_V2_CMD_FORCE:
 	case SPECTRE_V2_CMD_AUTO:
 		if (boot_cpu_has(X86_FEATURE_IBRS_ENHANCED)) {
@@ -2055,6 +2050,11 @@ static char *ibpb_state(void)
 	return "";
 }
 
+static ssize_t srbds_show_state(char *buf)
+{
+	return sprintf(buf, "%s\n", srbds_strings[srbds_mitigation]);
+}
+
 static ssize_t spectre_v2_show_state(char *buf)
 {
 	if (spectre_v2_enabled == SPECTRE_V2_LFENCE)
@@ -2074,11 +2074,6 @@ static ssize_t spectre_v2_show_state(char *buf)
 		       stibp_state(),
 		       boot_cpu_has(X86_FEATURE_RSB_CTXSW) ? ", RSB filling" : "",
 		       spectre_v2_module_string());
-}
-
-static ssize_t srbds_show_state(char *buf)
-{
-	return sprintf(buf, "%s\n", srbds_strings[srbds_mitigation]);
 }
 
 static ssize_t retbleed_show_state(char *buf)

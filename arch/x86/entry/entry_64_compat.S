@@ -55,6 +55,8 @@ ENTRY(entry_SYSENTER_compat)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp
 
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
+	/* Restrict Indirect Branch Speculation */
+	RESTRICT_IB_SPEC
 
 	/*
 	 * User tracing code (ptrace or signal handlers) might assume that
@@ -251,7 +253,6 @@ GLOBAL(entry_SYSCALL_compat_after_hwframe)
 
 	/* Restrict Indirect Branch Speculation. All registers are saved already */
 	RESTRICT_IB_SPEC_CLOBBER
-	UNTRAIN_RET
 
 	/* User mode is traced as though IRQs are on, and SYSENTER
 	 * turned them off.
@@ -437,7 +438,6 @@ ENTRY(entry_INT80_compat)
 	 * gate turned them off.
 	 */
 	TRACE_IRQS_OFF
-
 	UNTRAIN_RET
 
 	movq	%rsp, %rdi

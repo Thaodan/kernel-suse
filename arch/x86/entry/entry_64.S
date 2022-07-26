@@ -215,6 +215,8 @@ ENTRY(entry_SYSCALL_64)
 	 */
 	movq	%rsp, PER_CPU_VAR(rsp_scratch)
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
+	/* Restrict Indirect Branch Speculation */
+	RESTRICT_IB_SPEC
 
 	/* Construct struct pt_regs on stack */
 	pushq	$__USER_DS			/* pt_regs->ss */
@@ -234,7 +236,6 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 
 	/* Restrict Indirect Branch Speculation */
 	RESTRICT_IB_SPEC
-
 	UNTRAIN_RET
 
 	call	do_syscall_64		/* returns with IRQs disabled */
@@ -307,8 +308,8 @@ GLOBAL(entry_SYSCALL_64_after_hwframe)
 	 * perf profiles. Nothing jumps here.
 	 */
 syscall_return_via_sysret:
-	/* rcx and r11 are already restored (see code above) */
-	POP_REGS pop_rdi=0 skip_r11rcx=1
+	UNRESTRICT_IB_SPEC
+	POP_REGS pop_rdi=0
 
 	/*
 	 * Now all regs are restored except RSP and RDI.
@@ -598,6 +599,7 @@ GLOBAL(retint_user)
 	TRACE_IRQS_IRETQ
 
 GLOBAL(swapgs_restore_regs_and_return_to_usermode)
+	UNRESTRICT_IB_SPEC
 #ifdef CONFIG_DEBUG_ENTRY
 	/* Assert that pt_regs indicates user mode. */
 	testb	$3, CS(%rsp)
@@ -875,7 +877,6 @@ ENTRY(switch_to_thread_stack)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rdi
 	movq	%rsp, %rdi
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
-
 	/* Restrict Indirect Branch Speculation */
 	RESTRICT_IB_SPEC
 	UNTRAIN_RET
@@ -1178,6 +1179,9 @@ idtentry machine_check		do_mce			has_error_code=0	paranoid=1
  * Save all registers in pt_regs, and switch gs if needed.
  * Use slow, but surefire "are we in kernel?" check.
  * Return: ebx=0: need swapgs on exit, ebx=1: otherwise
+ *
+ * R14 - old CR3
+ * R15 - old SPEC_CTRL
  */
 ENTRY(paranoid_entry)
 	UNWIND_HINT_FUNC
@@ -1194,6 +1198,7 @@ ENTRY(paranoid_entry)
 
 1:
 	SAVE_AND_SWITCH_TO_KERNEL_CR3 scratch_reg=%rax save_reg=%r14
+
 	/* Restrict Indirect Branch speculation */
 	RESTRICT_IB_SPEC_SAVE_AND_CLOBBER save_reg=%r13d
 	UNTRAIN_RET
@@ -1312,6 +1317,7 @@ ENTRY(error_entry)
 	/* Restrict Indirect Branch Speculation */
 	RESTRICT_IB_SPEC_CLOBBER
 	UNTRAIN_RET
+
 	jmp .Lerror_entry_done
 
 .Lbstep_iret:
@@ -1329,7 +1335,6 @@ ENTRY(error_entry)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rax
 	/* Restrict Indirect Branch Speculation */
 	RESTRICT_IB_SPEC
-	UNTRAIN_RET
 
 	/*
 	 * Pretend that the exception came from user mode: set up pt_regs
@@ -1407,6 +1412,9 @@ ENTRY(nmi)
 	testb	$3, CS-RIP+8(%rsp)
 	jz	.Lnmi_from_kernel
 
+	RESTRICT_IB_SPEC
+	UNTRAIN_RET
+
 	/*
 	 * NMI from user mode.  We need to run on the thread stack, but we
 	 * can't go through the normal entry paths: NMIs are masked, and
@@ -1424,6 +1432,9 @@ ENTRY(nmi)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rdx
 	movq	%rsp, %rdx
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
+
+	/* Restrict Indirect Branch Speculation */
+	RESTRICT_IB_SPEC
 
 	UNWIND_HINT_IRET_REGS base=%rdx offset=8
 	pushq	5*8(%rdx)	/* pt_regs->ss */
