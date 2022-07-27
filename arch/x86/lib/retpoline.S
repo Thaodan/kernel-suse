@@ -49,6 +49,8 @@ GENERATE_THUNK(r14)
 GENERATE_THUNK(r15)
 #endif
 
+#endif /* CONFIG_RETPOLINE */
+
 /*
  * This function name is magical and is used by -mfunction-return=thunk-extern
  * for the compiler to generate JMPs to it.
@@ -103,6 +105,7 @@ zen_untrain_ret:
 ENTRY(__x86_return_thunk)
 	ret
 	int3
+ENDPROC(__x86_return_thunk)
 
 	/*
 	 * Ensure the TEST decoding / BTB invalidation is complete.
@@ -119,5 +122,3 @@ ENDPROC(zen_untrain_ret)
 __EXPORT_THUNK(zen_untrain_ret)
 
 EXPORT_SYMBOL(__x86_return_thunk)
-#endif /* CONFIG_RETPOLINE */
-
