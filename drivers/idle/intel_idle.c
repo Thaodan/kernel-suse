@@ -1414,7 +1414,7 @@ static void __init intel_idle_cpuidle_driver_init(void)
 			continue;
 		}
 
-		if (cpu_feature_enabled(X86_FEATURE_USE_IBRS) &&
+		if (cpu_feature_enabled(X86_FEATURE_KERNEL_IBRS) &&
 		    cpuidle_state_table[cstate].flags & CPUIDLE_FLAG_IBRS) {
 			drv->states[drv->state_count].enter = intel_idle_ibrs;
 		}
