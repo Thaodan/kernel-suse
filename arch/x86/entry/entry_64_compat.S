@@ -55,8 +55,6 @@ ENTRY(entry_SYSENTER_compat)
 	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp
 
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rsp
-	/* Restrict Indirect Branch Speculation */
-	RESTRICT_IB_SPEC
 
 	/*
 	 * User tracing code (ptrace or signal handlers) might assume that
@@ -109,8 +107,7 @@ ENTRY(entry_SYSENTER_compat)
 	xorl	%r15d, %r15d		/* nospec   r15 */
 	cld
 
-
-	RESTRICT_IB_SPEC
+	IBRS_ENTER
 	UNTRAIN_RET
 
 	/*
@@ -251,18 +248,15 @@ GLOBAL(entry_SYSCALL_compat_after_hwframe)
 	pushq   $0			/* pt_regs->r15 = 0 */
 	xorl	%r15d, %r15d		/* nospec   r15 */
 
-	/* Restrict Indirect Branch Speculation. All registers are saved already */
-	RESTRICT_IB_SPEC_CLOBBER
-
-	/* User mode is traced as though IRQs are on, and SYSENTER
+	/*
+	 * User mode is traced as though IRQs are on, and SYSENTER
 	 * turned them off.
 	 */
 	TRACE_IRQS_OFF
 
-	/*
-	 * We just saved %rdi so it is safe to clobber.  It is not
-	 * preserved during the C calls inside TRACE_IRQS_OFF anyway.
-	 */
+	IBRS_ENTER
+	UNTRAIN_RET
+
 	movq	%rsp, %rdi
 	call	do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
@@ -272,14 +266,7 @@ GLOBAL(entry_SYSCALL_compat_after_hwframe)
 	/* Opportunistic SYSRET */
 sysret32_from_system_call:
 	TRACE_IRQS_ON			/* User mode traces as IRQs on. */
-
-	/*
-	 * Unrestrict Indirect Branch Speculation. This is safe to do here
-	 * because there are no indirect branches between here and the
-	 * return to userspace (sysretl).
-	 * Clobber of %rax, %rcx, %rdx is OK before register restoring.
-	 */
-	UNRESTRICT_IB_SPEC_CLOBBER
+	IBRS_EXIT
 
 	movq	RBX(%rsp), %rbx		/* pt_regs->rbx */
 	movq	RBP(%rsp), %rbp		/* pt_regs->rbp */
@@ -341,8 +328,6 @@ ENTRY(switch_to_thread_stack_compat)
 	ALTERNATIVE "movq %rsp, %rdi", "jmp .Lcompat_keep_stack", X86_FEATURE_XENPV
 	movq    %rsp, %rdi
 	movq    PER_CPU_VAR(cpu_current_top_of_stack), %rsp
-	/* Restrict Indirect Branch Speculation */
-	RESTRICT_IB_SPEC
 	UNWIND_HINT sp_offset=16 sp_reg=ORC_REG_DI
 
 	pushq   7*8(%rdi)		/* regs->ss */
@@ -438,6 +423,8 @@ ENTRY(entry_INT80_compat)
 	 * gate turned them off.
 	 */
 	TRACE_IRQS_OFF
+
+	IBRS_ENTER
 	UNTRAIN_RET
 
 	movq	%rsp, %rdi
