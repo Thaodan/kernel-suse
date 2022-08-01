@@ -236,6 +236,8 @@ endif
 RETHUNK_CFLAGS		:= -mfunction-return=thunk-extern
 RETPOLINE_CFLAGS	+= $(RETHUNK_CFLAGS)
 
+export RETHUNK_CFLAGS
+
 # for vdso Makefile to exclude
 export RETPOLINE_CFLAGS
 
