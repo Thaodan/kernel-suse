@@ -1204,7 +1204,7 @@ ENTRY(camellia_ctr_32way)
 	vzeroupper;
 
 	FRAME_END
-	ret;
+	RET;
 ENDPROC(camellia_ctr_32way)
 
 #define gf128mul_x_ble(iv, mask, tmp) \
@@ -1371,7 +1371,7 @@ camellia_xts_crypt_32way:
 	vzeroupper;
 
 	FRAME_END
-	ret;
+	RET;
 ENDPROC(camellia_xts_crypt_32way)
 
 ENTRY(camellia_xts_enc_32way)
