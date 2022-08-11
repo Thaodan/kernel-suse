@@ -160,6 +160,7 @@ config ARCH_SHMOBILE
 
 config ARCH_SYNQUACER
 	bool "Socionext SynQuacer SoC Family"
+	select IRQ_FASTEOI_HIERARCHY_HANDLERS
 
 config ARCH_RENESAS
 	bool "Renesas SoC Platforms"

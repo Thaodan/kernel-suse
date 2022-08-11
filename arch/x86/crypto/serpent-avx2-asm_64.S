@@ -762,7 +762,7 @@ ENTRY(serpent_ctr_16way)
 	vzeroupper;
 
 	FRAME_END
-	ret;
+	RET;
 ENDPROC(serpent_ctr_16way)
 
 ENTRY(serpent_xts_enc_16way)
@@ -788,7 +788,7 @@ ENTRY(serpent_xts_enc_16way)
 	vzeroupper;
 
 	FRAME_END
-	ret;
+	RET;
 ENDPROC(serpent_xts_enc_16way)
 
 ENTRY(serpent_xts_dec_16way)
@@ -814,5 +814,5 @@ ENTRY(serpent_xts_dec_16way)
 	vzeroupper;
 
 	FRAME_END
-	ret;
+	RET;
 ENDPROC(serpent_xts_dec_16way)

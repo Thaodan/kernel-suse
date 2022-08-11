@@ -8,8 +8,6 @@
 #include <asm/export.h>
 #include <asm/nospec-branch.h>
 
-#ifdef CONFIG_RETPOLINE
-
 .macro THUNK reg
 	.section .text.__x86.indirect_thunk
 
@@ -48,7 +46,6 @@ GENERATE_THUNK(r13)
 GENERATE_THUNK(r14)
 GENERATE_THUNK(r15)
 #endif
-
 /*
  * This function name is magical and is used by -mfunction-return=thunk-extern
  * for the compiler to generate JMPs to it.
@@ -103,6 +100,7 @@ zen_untrain_ret:
 ENTRY(__x86_return_thunk)
 	ret
 	int3
+ENDPROC(__x86_return_thunk)
 
 	/*
 	 * Ensure the TEST decoding / BTB invalidation is complete.
@@ -119,5 +117,3 @@ ENDPROC(zen_untrain_ret)
 __EXPORT_THUNK(zen_untrain_ret)
 
 EXPORT_SYMBOL(__x86_return_thunk)
-#endif /* CONFIG_RETPOLINE */
-
