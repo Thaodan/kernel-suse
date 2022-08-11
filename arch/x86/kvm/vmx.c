@@ -3210,6 +3210,9 @@ static void nested_vmx_setup_ctls_msrs(struct vcpu_vmx *vmx)
 	rdmsrl(MSR_IA32_VMX_CR0_FIXED1, vmx->nested.nested_vmx_cr0_fixed1);
 	rdmsrl(MSR_IA32_VMX_CR4_FIXED1, vmx->nested.nested_vmx_cr4_fixed1);
 
+	if (vmx_umip_emulated())
+		vmx->nested.nested_vmx_cr4_fixed1 |= X86_CR4_UMIP;
+
 	/* highest index: VMX_PREEMPTION_TIMER_VALUE */
 	vmx->nested.nested_vmx_vmcs_enum = 0x2e;
 }
