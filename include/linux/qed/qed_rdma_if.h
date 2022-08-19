@@ -320,6 +320,9 @@ struct qed_rdma_create_qp_in_params {
 	u64 rq_pbl_ptr;
 	u16 srq_id;
 	u8 stats_queue;
+	u8 flags;
+#define QED_ROCE_EDPM_MODE_MASK      0x1
+#define QED_ROCE_EDPM_MODE_SHIFT     0
 };
 
 struct qed_rdma_create_qp_out_params {
