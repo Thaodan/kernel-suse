@@ -191,14 +191,13 @@ static u64 calc_available_free_space(struct btrfs_fs_info *fs_info,
 	u64 avail;
 	int factor;
 
+
 	if (space_info->flags & BTRFS_BLOCK_GROUP_METADATA)
 		profile = btrfs_metadata_alloc_profile(fs_info);
 	else
 		profile = btrfs_system_alloc_profile(fs_info);
 
-	spin_lock(&fs_info->free_chunk_lock);
-	avail = fs_info->free_chunk_space;
-	spin_unlock(&fs_info->free_chunk_lock);
+	avail = atomic64_read(&fs_info->free_chunk_space);
 
 	/*
 	 * If we have dup, raid1 or raid10 then only half of the free
