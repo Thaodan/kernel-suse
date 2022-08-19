@@ -756,8 +756,8 @@ static bool need_preemptive_reclaim(struct btrfs_fs_info *fs_info,
 	 * flushing, and now delalloc == ordered and we stop preemptively
 	 * flushing when we could still have several gigs of delalloc to flush.
 	 */
-	ordered = percpu_counter_sum_positive(&fs_info->ordered_bytes) >> 1;
-	delalloc = percpu_counter_sum_positive(&fs_info->delalloc_bytes);
+	ordered = percpu_counter_read_positive(&fs_info->ordered_bytes) >> 1;
+	delalloc = percpu_counter_read_positive(&fs_info->delalloc_bytes);
 	if (ordered >= delalloc)
 		used += fs_info->delayed_refs_rsv.reserved +
 			fs_info->delayed_block_rsv.reserved;
