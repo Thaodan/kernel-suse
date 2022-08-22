@@ -2092,7 +2092,7 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
 			 * xfrm_dst_check()
 			 */
 			xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-			dst_release_immediate(&xdst->u.dst);
+			dst_release(&xdst->u.dst);
 			xdst = NULL;
 			num_pols = 0;
 			num_xfrms = 0;
@@ -2141,7 +2141,7 @@ xfrm_bundle_lookup(struct net *net, const struct flowi *fl, u16 family, u8 dir,
 		xdst->num_pols = 0;
 		/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check() */
 		xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-		dst_release_immediate(&xdst->u.dst);
+		dst_release(&xdst->u.dst);
 	}
 
 	/* We do need to return one reference for original caller */
@@ -2170,7 +2170,7 @@ error:
 	if (xdst != NULL) {
 		/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check() */
 		xdst->u.dst.obsolete = DST_OBSOLETE_DEAD;
-		dst_release_immediate(&xdst->u.dst);
+		dst_release(&xdst->u.dst);
 	} else
 		xfrm_pols_put(pols, num_pols);
 	return ERR_PTR(err);
