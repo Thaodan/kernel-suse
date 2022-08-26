@@ -5,6 +5,18 @@ config HAS_DMA
 	depends on !NO_DMA
 	default y
 
+#
+# IOMMU drivers that can bypass the IOMMU code and optionally use the direct
+# mapping fast path should select this option and set the dma_ops_bypass
+# flag in struct device where applicable
+#
+config DMA_OPS_BYPASS
+	bool
+
+# Lets platform IOMMU driver choose between bypass and IOMMU
+config ARCH_HAS_DMA_MAP_DIRECT
+	bool
+
 config NEED_SG_DMA_LENGTH
 	bool
 
