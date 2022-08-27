@@ -80,6 +80,8 @@ smb2_add_credits(struct TCP_Server_Info *server,
 	if (*val > 65000) {
 		*val = 65000; /* Don't get near 64K credits, avoid srv bugs */
 		printk_once(KERN_WARNING "server overflowed SMB3 credits\n");
+		trace_smb3_overflow_credits(server->CurrentMid,
+					    server->hostname, *val, add);
 	}
 	server->in_flight--;
 	if (server->in_flight == 0 &&
@@ -217,7 +219,7 @@ smb2_wait_mtu_credits(struct TCP_Server_Info *server, unsigned int size,
 	}
 	spin_unlock(&server->req_lock);
 
-	trace_smb3_add_credits(server->CurrentMid,
+	trace_smb3_wait_credits(server->CurrentMid,
 			server->hostname, scredits, -(credits->value));
 	cifs_dbg(FYI, "%s: removed %u credits total=%d\n",
 			__func__, credits->value, scredits);
@@ -262,7 +264,7 @@ smb2_adjust_credits(struct TCP_Server_Info *server,
 	wake_up(&server->request_q);
 	credits->value = new_val;
 
-	trace_smb3_add_credits(server->CurrentMid,
+	trace_smb3_adj_credits(server->CurrentMid,
 			server->hostname, scredits, credits->value - new_val);
 	cifs_dbg(FYI, "%s: adjust added %u credits total=%d\n",
 			__func__, credits->value - new_val, scredits);
@@ -2413,7 +2415,7 @@ smb2_is_status_pending(char *buf, struct TCP_Server_Info *server)
 		spin_unlock(&server->req_lock);
 		wake_up(&server->request_q);
 
-		trace_smb3_add_credits(server->CurrentMid,
+		trace_smb3_pend_credits(server->CurrentMid,
 				server->hostname, scredits, le16_to_cpu(shdr->CreditRequest));
 		cifs_dbg(FYI, "%s: status pending add %u credits total=%d\n",
 				__func__, le16_to_cpu(shdr->CreditRequest), scredits);

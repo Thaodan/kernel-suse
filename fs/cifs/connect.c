@@ -1203,7 +1203,7 @@ smb2_add_credits_from_hdr(char *buffer, struct TCP_Server_Info *server)
 		spin_unlock(&server->req_lock);
 		wake_up(&server->request_q);
 
-		trace_smb3_add_credits(server->CurrentMid,
+		trace_smb3_hdr_credits(server->CurrentMid,
 				server->hostname, scredits,
 				le16_to_cpu(shdr->CreditRequest));
 		cifs_server_dbg(FYI, "%s: added %u credits total=%d\n",
