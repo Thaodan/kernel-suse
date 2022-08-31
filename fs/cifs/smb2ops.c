@@ -4822,7 +4822,7 @@ static void smb2_decrypt_offload(struct work_struct *work)
 				spin_unlock(&GlobalMid_Lock);
 			}
 		}
-		cifs_mid_q_entry_release(mid);
+		release_mid(mid);
 	}
 
 free_pages:

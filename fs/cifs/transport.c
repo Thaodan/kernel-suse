@@ -51,12 +51,12 @@ cifs_wake_up_task(struct mid_q_entry *mid)
 }
 
 struct mid_q_entry *
-AllocMidQEntry(const struct smb_hdr *smb_buffer, struct TCP_Server_Info *server)
+alloc_mid(const struct smb_hdr *smb_buffer, struct TCP_Server_Info *server)
 {
 	struct mid_q_entry *temp;
 
 	if (server == NULL) {
-		cifs_dbg(VFS, "Null TCP session in AllocMidQEntry\n");
+		cifs_dbg(VFS, "%s: null TCP session\n", __func__);
 		return NULL;
 	}
 
@@ -86,7 +86,7 @@ AllocMidQEntry(const struct smb_hdr *smb_buffer, struct TCP_Server_Info *server)
 	return temp;
 }
 
-static void _cifs_mid_q_entry_release(struct kref *refcount)
+static void __release_mid(struct kref *refcount)
 {
 	struct mid_q_entry *midEntry =
 			container_of(refcount, struct mid_q_entry, refcount);
@@ -165,20 +165,15 @@ static void _cifs_mid_q_entry_release(struct kref *refcount)
 	mempool_free(midEntry, cifs_mid_poolp);
 }
 
-void cifs_mid_q_entry_release(struct mid_q_entry *midEntry)
+void release_mid(struct mid_q_entry *mid)
 {
 	spin_lock(&GlobalMid_Lock);
-	kref_put(&midEntry->refcount, _cifs_mid_q_entry_release);
+	kref_put(&mid->refcount, __release_mid);
 	spin_unlock(&GlobalMid_Lock);
 }
 
-void DeleteMidQEntry(struct mid_q_entry *midEntry)
-{
-	cifs_mid_q_entry_release(midEntry);
-}
-
 void
-cifs_delete_mid(struct mid_q_entry *mid)
+delete_mid(struct mid_q_entry *mid)
 {
 	spin_lock(&GlobalMid_Lock);
 	if (!(mid->mid_flags & MID_DELETED)) {
@@ -187,7 +182,7 @@ cifs_delete_mid(struct mid_q_entry *mid)
 	}
 	spin_unlock(&GlobalMid_Lock);
 
-	DeleteMidQEntry(mid);
+	release_mid(mid);
 }
 
 /*
@@ -740,7 +735,7 @@ static int allocate_mid(struct cifs_ses *ses, struct smb_hdr *in_buf,
 		/* else ok - we are shutting down session */
 	}
 
-	*ppmidQ = AllocMidQEntry(in_buf, ses->server);
+	*ppmidQ = alloc_mid(in_buf, ses->server);
 	if (*ppmidQ == NULL)
 		return -ENOMEM;
 	spin_lock(&GlobalMid_Lock);
@@ -777,13 +772,13 @@ cifs_setup_async_request(struct TCP_Server_Info *server, struct smb_rqst *rqst)
 	if (server->sign)
 		hdr->Flags2 |= SMBFLG2_SECURITY_SIGNATURE;
 
-	mid = AllocMidQEntry(hdr, server);
+	mid = alloc_mid(hdr, server);
 	if (mid == NULL)
 		return ERR_PTR(-ENOMEM);
 
 	rc = cifs_sign_rqst(rqst, server, &mid->sequence_number);
 	if (rc) {
-		DeleteMidQEntry(mid);
+		release_mid(mid);
 		return ERR_PTR(rc);
 	}
 
@@ -860,7 +855,7 @@ cifs_call_async(struct TCP_Server_Info *server, struct smb_rqst *rqst,
 	if (rc < 0) {
 		revert_current_mid(server, mid->credits);
 		server->sequence_number -= 2;
-		cifs_delete_mid(mid);
+		delete_mid(mid);
 	}
 
 	mutex_unlock(&server->srv_mutex);
@@ -933,7 +928,7 @@ cifs_sync_mid_result(struct mid_q_entry *mid, struct TCP_Server_Info *server)
 	}
 	spin_unlock(&GlobalMid_Lock);
 
-	DeleteMidQEntry(mid);
+	release_mid(mid);
 	return rc;
 }
 
@@ -992,7 +987,7 @@ cifs_setup_request(struct cifs_ses *ses, struct smb_rqst *rqst)
 		return ERR_PTR(rc);
 	rc = cifs_sign_rqst(rqst, ses->server, &mid->sequence_number);
 	if (rc) {
-		cifs_delete_mid(mid);
+		delete_mid(mid);
 		return ERR_PTR(rc);
 	}
 	return mid;
@@ -1021,7 +1016,7 @@ static void
 cifs_cancelled_callback(struct mid_q_entry *mid)
 {
 	cifs_compound_callback(mid);
-	DeleteMidQEntry(mid);
+	release_mid(mid);
 }
 
 int
@@ -1098,7 +1093,7 @@ compound_send_recv(const unsigned int xid, struct cifs_ses *ses,
 		if (IS_ERR(midQ[i])) {
 			revert_current_mid(server, i);
 			for (j = 0; j < i; j++)
-				cifs_delete_mid(midQ[j]);
+				delete_mid(midQ[j]);
 			mutex_unlock(&server->srv_mutex);
 
 			/* Update # of requests on wire to server */
@@ -1213,7 +1208,7 @@ compound_send_recv(const unsigned int xid, struct cifs_ses *ses,
 		rc = server->ops->check_receive(midQ[i], server,
 						     flags & CIFS_LOG_ERROR);
 
-		/* mark it so buf will not be freed by cifs_delete_mid */
+		/* mark it so buf will not be freed by delete_mid */
 		if ((flags & CIFS_NO_RSP_BUF) == 0)
 			midQ[i]->resp_buf = NULL;
 
@@ -1241,7 +1236,7 @@ out:
 	 */
 	for (i = 0; i < num_rqst; i++) {
 		if (!cancelled_mid[i])
-			cifs_delete_mid(midQ[i]);
+			delete_mid(midQ[i]);
 	}
 
 	return rc;
@@ -1375,7 +1370,7 @@ SendReceive(const unsigned int xid, struct cifs_ses *ses,
 		spin_lock(&GlobalMid_Lock);
 		if (midQ->mid_state == MID_REQUEST_SUBMITTED) {
 			/* no longer considered to be "in-flight" */
-			midQ->callback = DeleteMidQEntry;
+			midQ->callback = release_mid;
 			spin_unlock(&GlobalMid_Lock);
 			add_credits(server, &credits, 0);
 			return rc;
@@ -1400,7 +1395,7 @@ SendReceive(const unsigned int xid, struct cifs_ses *ses,
 	memcpy(out_buf, midQ->resp_buf, *pbytes_returned + 4);
 	rc = cifs_check_receive(midQ, server, 0);
 out:
-	cifs_delete_mid(midQ);
+	delete_mid(midQ);
 	add_credits(server, &credits, 0);
 
 	return rc;
@@ -1489,7 +1484,7 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifs_tcon *tcon,
 
 	rc = cifs_sign_smb(in_buf, server, &midQ->sequence_number);
 	if (rc) {
-		cifs_delete_mid(midQ);
+		delete_mid(midQ);
 		mutex_unlock(&server->srv_mutex);
 		return rc;
 	}
@@ -1506,7 +1501,7 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifs_tcon *tcon,
 	mutex_unlock(&server->srv_mutex);
 
 	if (rc < 0) {
-		cifs_delete_mid(midQ);
+		delete_mid(midQ);
 		return rc;
 	}
 
@@ -1527,7 +1522,7 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifs_tcon *tcon,
 			   blocking lock to return. */
 			rc = send_cancel(server, &rqst, midQ);
 			if (rc) {
-				cifs_delete_mid(midQ);
+				delete_mid(midQ);
 				return rc;
 			}
 		} else {
@@ -1539,7 +1534,7 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifs_tcon *tcon,
 			/* If we get -ENOLCK back the lock may have
 			   already been removed. Don't exit in this case. */
 			if (rc && rc != -ENOLCK) {
-				cifs_delete_mid(midQ);
+				delete_mid(midQ);
 				return rc;
 			}
 		}
@@ -1550,7 +1545,7 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifs_tcon *tcon,
 			spin_lock(&GlobalMid_Lock);
 			if (midQ->mid_state == MID_REQUEST_SUBMITTED) {
 				/* no longer considered to be "in-flight" */
-				midQ->callback = DeleteMidQEntry;
+				midQ->callback = release_mid;
 				spin_unlock(&GlobalMid_Lock);
 				return rc;
 			}
@@ -1576,7 +1571,7 @@ SendReceiveBlockingLock(const unsigned int xid, struct cifs_tcon *tcon,
 	memcpy(out_buf, midQ->resp_buf, *pbytes_returned + 4);
 	rc = cifs_check_receive(midQ, server, 0);
 out:
-	cifs_delete_mid(midQ);
+	delete_mid(midQ);
 	if (rstart && rc == -EACCES)
 		return -ERESTARTSYS;
 	return rc;
