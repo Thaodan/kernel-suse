@@ -628,7 +628,7 @@ smb2_mid_entry_alloc(const struct smb2_sync_hdr *shdr,
 	temp->callback = cifs_wake_up_task;
 	temp->callback_data = current;
 
-	atomic_inc(&midCount);
+	atomic_inc(&mid_count);
 	temp->mid_state = MID_REQUEST_ALLOCATED;
 	trace_smb3_cmd_enter(shdr->TreeId, shdr->SessionId,
 		le16_to_cpu(shdr->Command), temp->mid);
