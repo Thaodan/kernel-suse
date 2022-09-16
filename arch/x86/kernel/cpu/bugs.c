@@ -872,9 +872,6 @@ static int __ro_after_init retbleed_nosmt = false;
 
 static int __init retbleed_parse_cmdline(char *str)
 {
-	if (!str)
-		return -EINVAL;
-
 	while (str) {
 		char *next = strchr(str, ',');
 		if (next) {
@@ -883,7 +880,7 @@ static int __init retbleed_parse_cmdline(char *str)
 		}
 
 		if (!strcmp(str, "off")) {
-			return -EINVAL;
+			retbleed_cmd = RETBLEED_CMD_OFF;
 		} else if (!strcmp(str, "auto")) {
 			retbleed_cmd = RETBLEED_CMD_AUTO;
 		} else if (!strcmp(str, "unret")) {
