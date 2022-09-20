@@ -83,4 +83,6 @@ void	xfs_inobp_check(struct xfs_mount *, struct xfs_buf *);
 bool	xfs_dinode_verify(struct xfs_mount *mp, xfs_ino_t ino,
 			  struct xfs_dinode *dip);
 
+struct timespec64 xfs_inode_from_disk_ts(const xfs_timestamp_t ts);
+
 #endif	/* __XFS_INODE_BUF_H__ */
