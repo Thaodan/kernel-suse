@@ -226,8 +226,6 @@ nfsd_proc_write(struct svc_rqst *rqstp, struct nfsd_writeargs *argp,
 		argp->len, argp->offset);
 
 	nvecs = svc_fill_write_vector(rqstp, &argp->first, cnt);
-	if (!nvecs)
-		return nfserr_io;
 	nfserr = nfsd_write(rqstp, fh_copy(&resp->fh, &argp->fh),
 			    argp->offset, rqstp->rq_vec, nvecs,
 			    &cnt, NFS_DATA_SYNC);
