@@ -12,6 +12,7 @@
 #include <linux/if_bridge.h>
 #include <net/pkt_cls.h>
 #include "ocelot.h"
+#include "ocelot_police.h"
 #include "ocelot_vcap.h"
 
 static struct ocelot *devlink_port_to_ocelot(struct devlink_port *dlp)
@@ -252,11 +253,10 @@ static int ocelot_setup_tc_cls_matchall(struct ocelot_port_private *priv,
 			return -EEXIST;
 		}
 
-		if (action->police.rate_pkt_ps) {
-			NL_SET_ERR_MSG_MOD(extack,
-					   "QoS offload not support packets per second");
-			return -EOPNOTSUPP;
-		}
+		err = ocelot_policer_validate(&f->rule->action, action,
+					      extack);
+		if (err)
+			return err;
 
 		pol.rate = (u32)div_u64(action->police.rate_bytes_ps, 1000) * 8;
 		pol.burst = action->police.burst;
@@ -1495,8 +1495,7 @@ int ocelot_probe_port(struct ocelot *ocelot, int port, struct regmap *target,
 		NETIF_F_HW_TC;
 	dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER | NETIF_F_HW_TC;
 
-	eth_hw_addr_set(dev, ocelot->base_mac);
-	dev->dev_addr[ETH_ALEN - 1] += port;
+	eth_hw_addr_gen(dev, ocelot->base_mac, port);
 	ocelot_mact_learn(ocelot, PGID_CPU, dev->dev_addr,
 			  ocelot_port->pvid_vlan.vid, ENTRYTYPE_LOCKED);
 
