@@ -665,11 +665,11 @@ xfs_qm_init_quotainfo(
 		 * more writing. If it is zero, a default is used.
 		 */
 		qinf->qi_btimelimit = ddqp->d_btimer ?
-			be32_to_cpu(ddqp->d_btimer) : XFS_QM_BTIMELIMIT;
+			dqp->q_blk_timer : XFS_QM_BTIMELIMIT;
 		qinf->qi_itimelimit = ddqp->d_itimer ?
-			be32_to_cpu(ddqp->d_itimer) : XFS_QM_ITIMELIMIT;
+			dqp->q_ino_timer : XFS_QM_ITIMELIMIT;
 		qinf->qi_rtbtimelimit = ddqp->d_rtbtimer ?
-			be32_to_cpu(ddqp->d_rtbtimer) : XFS_QM_RTBTIMELIMIT;
+			dqp->q_rtb_timer : XFS_QM_RTBTIMELIMIT;
 		qinf->qi_bwarnlimit = ddqp->d_bwarns ?
 			be16_to_cpu(ddqp->d_bwarns) : XFS_QM_BWARNLIMIT;
 		qinf->qi_iwarnlimit = ddqp->d_iwarns ?
@@ -891,6 +891,8 @@ xfs_qm_reset_dqcounts(
 			ddq->d_bwarns = 0;
 			ddq->d_iwarns = 0;
 			ddq->d_rtbwarns = 0;
+			if (xfs_sb_version_hasbigtime(&mp->m_sb))
+				ddq->d_flags |= XFS_DQTYPE_BIGTIME;
 		}
 
 		if (xfs_sb_version_hascrc(&mp->m_sb)) {
