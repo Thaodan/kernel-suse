@@ -5044,7 +5044,6 @@ retry:
 		 * follow_page_mask().
 		 */
 	}
-out:
 	spin_unlock(ptl);
 	return page;
 }
