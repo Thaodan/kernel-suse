@@ -1616,6 +1616,7 @@ extern struct dentry *vfs_tmpfile(struct dentry *dentry, umode_t mode,
 extern void inode_init_owner(struct inode *inode, const struct inode *dir,
 			umode_t mode);
 extern bool may_open_dev(const struct path *path);
+
 /*
  * VFS FS_IOC_FIEMAP helper definitions.
  */
@@ -1629,6 +1630,8 @@ struct fiemap_extent_info {
 int fiemap_fill_next_extent(struct fiemap_extent_info *info, u64 logical,
 			    u64 phys, u64 len, u32 flags);
 int fiemap_check_flags(struct fiemap_extent_info *fieinfo, u32 fs_flags);
+
+umode_t mode_strip_sgid(const struct inode *dir, umode_t mode);
 
 /*
  * File types
