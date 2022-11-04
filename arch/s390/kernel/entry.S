@@ -1252,7 +1252,7 @@ cleanup_critical:
 	je      1f
 	slg     %r9,BASED(.Lsie_crit_mcck_start)
 	clg     %r9,BASED(.Lsie_crit_mcck_length)
-	jh      1f
+	jhe     1f
 	oi      __LC_CPU_FLAGS+7, _CIF_MCCK_GUEST
 1:	BPENTER __SF_EMPTY+24(%r15),(_TIF_ISOLATE_BP|_TIF_ISOLATE_BP_GUEST)
 	lg	%r9,__SF_EMPTY(%r15)		# get control block pointer
