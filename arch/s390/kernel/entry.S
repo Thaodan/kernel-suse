@@ -281,7 +281,10 @@ ENTRY(sie64a)
 	BPEXIT	__SF_EMPTY+24(%r15),(_TIF_ISOLATE_BP|_TIF_ISOLATE_BP_GUEST)
 .Lsie_entry:
 	sie	0(%r14)
-.Lsie_exit:
+# Let the next instruction be NOP to avoid triggering a machine check
+# and handling it in a guest as result of the instruction execution.
+	nopr	7
+.Lsie_leave:
 	BPOFF
 	BPENTER	__SF_EMPTY+24(%r15),(_TIF_ISOLATE_BP|_TIF_ISOLATE_BP_GUEST)
 .Lsie_skip:
@@ -1444,7 +1447,7 @@ cleanup_critical:
 .Lsie_crit_mcck_start:
 	.quad   .Lsie_entry
 .Lsie_crit_mcck_length:
-	.quad   .Lsie_skip - .Lsie_entry
+	.quad   .Lsie_leave - .Lsie_entry
 #endif
 
 	.section .rodata, "a"
