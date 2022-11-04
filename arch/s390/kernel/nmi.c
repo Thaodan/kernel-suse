@@ -230,14 +230,24 @@ static int notrace s390_validate_registers(union mci mci, int umode)
 	}
 	/* Validate guarded storage registers */
 	if (MACHINE_HAS_GS && (S390_lowcore.cregs_save_area[2] & (1UL << 4))) {
-		if (!mci.gs)
+		if (!mci.gs) {
 			/*
-			 * Guarded storage register can't be restored and
-			 * the current processes uses guarded storage.
-			 * It has to be terminated.
+			 * 2 cases:
+			 * - machine check in kernel or userspace
+			 * - machine check while running SIE (KVM guest)
+			 * For kernel or userspace the userspace values of
+			 * guarded storage control can not be recreated, the
+			 * process must be terminated.
+			 * For SIE the guest values of guarded storage can not
+			 * be recreated. This is either due to a bug or due to
+			 * GS being disabled in the guest. The guest will be
+			 * notified by KVM code and the guests machine check
+			 * handling must take care of this.  The host values
+			 * are saved by KVM and are not affected.
 			 */
-			kill_task = 1;
-		else
+			if (!test_cpu_flag(CIF_MCCK_GUEST))
+				kill_task = 1;
+		} else
 			load_gs_cb((struct gs_cb *)
 				   mcesa->guarded_storage_save_area);
 	}
