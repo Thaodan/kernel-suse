@@ -818,11 +818,11 @@ struct bnxt_cp_ring_info {
 	struct dim		dim;
 
 	union {
-		struct tx_cmp	*cp_desc_ring[MAX_CP_PAGES];
-		struct nqe_cn	*nq_desc_ring[MAX_CP_PAGES];
+		struct tx_cmp	**cp_desc_ring;
+		struct nqe_cn	**nq_desc_ring;
 	};
 
-	dma_addr_t		cp_desc_mapping[MAX_CP_PAGES];
+	dma_addr_t		*cp_desc_mapping;
 
 	struct ctx_hw_stats	*hw_stats;
 	dma_addr_t		hw_stats_map;
