@@ -2423,6 +2423,9 @@ static void bnxt_free_ring(struct bnxt *bp, struct bnxt_ring_mem_info *rmem)
 	struct pci_dev *pdev = bp->pdev;
 	int i;
 
+	if (!rmem->pg_arr)
+		goto skip_pages;
+
 	for (i = 0; i < rmem->nr_pages; i++) {
 		if (!rmem->pg_arr[i])
 			continue;
@@ -2432,6 +2435,7 @@ static void bnxt_free_ring(struct bnxt *bp, struct bnxt_ring_mem_info *rmem)
 
 		rmem->pg_arr[i] = NULL;
 	}
+skip_pages:
 	if (rmem->pg_tbl) {
 		size_t pg_tbl_size = rmem->nr_pages * 8;
 
@@ -2669,6 +2673,62 @@ static int bnxt_alloc_tx_rings(struct bnxt *bp)
 	return 0;
 }
 
+static void bnxt_free_cp_arrays(struct bnxt_cp_ring_info *cpr)
+{
+	struct bnxt_ring_struct *ring = &cpr->cp_ring_struct;
+
+	kfree(cpr->cp_desc_ring);
+	cpr->cp_desc_ring = NULL;
+	ring->ring_mem.pg_arr = NULL;
+	kfree(cpr->cp_desc_mapping);
+	cpr->cp_desc_mapping = NULL;
+	ring->ring_mem.dma_arr = NULL;
+}
+
+static int bnxt_alloc_cp_arrays(struct bnxt_cp_ring_info *cpr, int n)
+{
+	cpr->cp_desc_ring = kcalloc(n, sizeof(*cpr->cp_desc_ring), GFP_KERNEL);
+	if (!cpr->cp_desc_ring)
+		return -ENOMEM;
+	cpr->cp_desc_mapping = kcalloc(n, sizeof(*cpr->cp_desc_mapping),
+				       GFP_KERNEL);
+	if (!cpr->cp_desc_mapping)
+		return -ENOMEM;
+	return 0;
+}
+
+static void bnxt_free_all_cp_arrays(struct bnxt *bp)
+{
+	int i;
+
+	if (!bp->bnapi)
+		return;
+	for (i = 0; i < bp->cp_nr_rings; i++) {
+		struct bnxt_napi *bnapi = bp->bnapi[i];
+
+		if (!bnapi)
+			continue;
+		bnxt_free_cp_arrays(&bnapi->cp_ring);
+	}
+}
+
+static int bnxt_alloc_all_cp_arrays(struct bnxt *bp)
+{
+	int i, n = bp->cp_nr_pages;
+
+	for (i = 0; i < bp->cp_nr_rings; i++) {
+		struct bnxt_napi *bnapi = bp->bnapi[i];
+		int rc;
+
+		if (!bnapi)
+			continue;
+		rc = bnxt_alloc_cp_arrays(&bnapi->cp_ring, n);
+		if (rc)
+			return rc;
+	}
+	return 0;
+}
+
 static void bnxt_free_cp_rings(struct bnxt *bp)
 {
 	int i;
@@ -2696,6 +2756,7 @@ static void bnxt_free_cp_rings(struct bnxt *bp)
 			if (cpr2) {
 				ring = &cpr2->cp_ring_struct;
 				bnxt_free_ring(bp, &ring->ring_mem);
+				bnxt_free_cp_arrays(cpr2);
 				kfree(cpr2);
 				cpr->cp_ring_arr[j] = NULL;
 			}
@@ -2714,6 +2775,12 @@ static struct bnxt_cp_ring_info *bnxt_alloc_cp_sub_ring(struct bnxt *bp)
 	if (!cpr)
 		return NULL;
 
+	rc = bnxt_alloc_cp_arrays(cpr, bp->cp_nr_pages);
+	if (rc) {
+		bnxt_free_cp_arrays(cpr);
+		kfree(cpr);
+		return NULL;
+	}
 	ring = &cpr->cp_ring_struct;
 	rmem = &ring->ring_mem;
 	rmem->nr_pages = bp->cp_nr_pages;
@@ -2724,6 +2791,7 @@ static struct bnxt_cp_ring_info *bnxt_alloc_cp_sub_ring(struct bnxt *bp)
 	rc = bnxt_alloc_ring(bp, rmem);
 	if (rc) {
 		bnxt_free_ring(bp, rmem);
+		bnxt_free_cp_arrays(cpr);
 		kfree(cpr);
 		cpr = NULL;
 	}
@@ -3157,9 +3225,15 @@ void bnxt_set_ring_params(struct bnxt *bp)
 		if (jumbo_factor > agg_factor)
 			agg_factor = jumbo_factor;
 	}
-	agg_ring_size = ring_size * agg_factor;
+	if (agg_factor) {
+		if (ring_size > BNXT_MAX_RX_DESC_CNT_JUM_ENA) {
+			ring_size = BNXT_MAX_RX_DESC_CNT_JUM_ENA;
+			netdev_warn(bp->dev, "RX ring size reduced from %d to %d because the jumbo ring is now enabled\n",
+				    bp->rx_ring_size, ring_size);
+			bp->rx_ring_size = ring_size;
+		}
+		agg_ring_size = ring_size * agg_factor;
 
-	if (agg_ring_size) {
 		bp->rx_agg_nr_pages = bnxt_calc_nr_ring_pages(agg_ring_size,
 							RX_DESC_CNT);
 		if (bp->rx_agg_nr_pages > MAX_RX_AGG_PAGES) {
@@ -3631,6 +3705,7 @@ static void bnxt_free_mem(struct bnxt *bp, bool irq_re_init)
 	bnxt_free_tx_rings(bp);
 	bnxt_free_rx_rings(bp);
 	bnxt_free_cp_rings(bp);
+	bnxt_free_all_cp_arrays(bp);
 	bnxt_free_ntp_fltrs(bp, irq_re_init);
 	if (irq_re_init) {
 		bnxt_free_ring_stats(bp);
@@ -3746,6 +3821,10 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
 		if (rc)
 			goto alloc_mem_err;
 	}
+
+	rc = bnxt_alloc_all_cp_arrays(bp);
+	if (rc)
+		goto alloc_mem_err;
 
 	bnxt_init_ring_struct(bp);
 
