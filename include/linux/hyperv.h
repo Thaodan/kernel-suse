@@ -710,6 +710,22 @@ enum vmbus_device_type {
 	HV_UNKNOWN,
 };
 
+/*
+ * Provides request ids for VMBus. Encapsulates guest memory
+ * addresses and stores the next available slot in req_arr
+ * to generate new ids in constant time.
+ */
+struct vmbus_requestor {
+	u64 *req_arr;
+	unsigned long *req_bitmap; /* is a given slot available? */
+	u32 size;
+	u64 next_request_id;
+	spinlock_t req_lock; /* provides atomicity */
+};
+
+#define VMBUS_NO_RQSTOR U64_MAX
+#define VMBUS_RQST_ERROR (U64_MAX - 1)
+
 struct vmbus_device {
 	u16  dev_type;
 	guid_t guid;
@@ -939,6 +955,10 @@ struct vmbus_channel {
 	u32 fuzz_testing_message_delay;
 
 #ifndef __GENKSYMS__
+	/* request/transaction ids for VMBus */
+#define SUSE_vmbus_channel_NEW_requestor 1
+	struct vmbus_requestor requestor;
+	u32 rqstor_size;
 	/*
 	 * Synchronize channel scheduling and channel removal; see the inline
 	 * comments in vmbus_chan_sched() and vmbus_reset_channel_cb().
@@ -947,6 +967,9 @@ struct vmbus_channel {
 	spinlock_t sched_lock;
 #endif
 };
+
+u64 vmbus_next_request_id(struct vmbus_requestor *rqstor, u64 rqst_addr);
+u64 vmbus_request_addr(struct vmbus_requestor *rqstor, u64 trans_id);
 
 static inline bool is_hvsock_channel(const struct vmbus_channel *c)
 {
