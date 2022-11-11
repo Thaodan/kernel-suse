@@ -854,7 +854,8 @@ struct vmbus_channel {
 	 * To support per-cpu lookup mapping of relid to channel,
 	 * link up channels based on their CPU affinity.
 	 */
-	struct list_head percpu_list;
+#define SUSE_vmbus_channel_UNUSED_percpu_list 1
+	struct list_head percpu_list; /* unused, preserve SUSE kABI */
 
 	/*
 	 * Defer freeing channel until after all cpu's have
