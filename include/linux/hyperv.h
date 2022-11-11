@@ -725,7 +725,11 @@ struct vmbus_requestor {
 
 #define VMBUS_NO_RQSTOR U64_MAX
 #define VMBUS_RQST_ERROR (U64_MAX - 1)
+/* NetVSC-specific */
 #define VMBUS_RQST_ID_NO_RESPONSE (U64_MAX - 2)
+/* StorVSC-specific */
+#define VMBUS_RQST_INIT (U64_MAX - 2)
+#define VMBUS_RQST_RESET (U64_MAX - 3)
 
 struct vmbus_device {
 	u16  dev_type;
@@ -954,10 +958,15 @@ struct vmbus_channel {
 	bool fuzz_testing_state;
 	u32 fuzz_testing_interrupt_delay;
 	u32 fuzz_testing_message_delay;
-
 #ifndef __GENKSYMS__
-	/* request/transaction ids for VMBus */
+#define SUSE_vmbus_channel_NEW_request_callback 1
+	/* callback to generate a request ID from a request address */
+	u64 (*next_request_id_callback)(struct vmbus_channel *channel, u64 rqst_addr);
+	/* callback to retrieve a request address from a request ID */
+	u64 (*request_addr_callback)(struct vmbus_channel *channel, u64 rqst_id);
+
 #define SUSE_vmbus_channel_NEW_requestor 1
+	/* request/transaction ids for VMBus */
 	struct vmbus_requestor requestor;
 	u32 rqstor_size;
 	/*
@@ -969,8 +978,8 @@ struct vmbus_channel {
 #endif
 };
 
-u64 vmbus_next_request_id(struct vmbus_requestor *rqstor, u64 rqst_addr);
-u64 vmbus_request_addr(struct vmbus_requestor *rqstor, u64 trans_id);
+u64 vmbus_next_request_id(struct vmbus_channel *channel, u64 rqst_addr);
+u64 vmbus_request_addr(struct vmbus_channel *channel, u64 trans_id);
 
 static inline bool is_hvsock_channel(const struct vmbus_channel *c)
 {
