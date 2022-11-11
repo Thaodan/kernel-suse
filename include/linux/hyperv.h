@@ -937,6 +937,15 @@ struct vmbus_channel {
 	bool fuzz_testing_state;
 	u32 fuzz_testing_interrupt_delay;
 	u32 fuzz_testing_message_delay;
+
+#ifndef __GENKSYMS__
+	/*
+	 * Synchronize channel scheduling and channel removal; see the inline
+	 * comments in vmbus_chan_sched() and vmbus_reset_channel_cb().
+	 */
+#define SUSE_vmbus_channel_NEW_sched_lock 1
+	spinlock_t sched_lock;
+#endif
 };
 
 static inline bool is_hvsock_channel(const struct vmbus_channel *c)
