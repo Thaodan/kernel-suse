@@ -973,6 +973,7 @@ struct net_device_context {
 	/* Serial number of the VF to team with */
 	u32 vf_serial;
 
+	/* Used to temporarily save the config info across hibernation */
 	struct netvsc_device_info *saved_netvsc_dev_info;
 };
 
