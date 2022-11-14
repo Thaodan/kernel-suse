@@ -460,6 +460,10 @@ static void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q, int bidx,
 				struct qeth_qdio_out_buffer *f = c;
 				QETH_CARD_TEXT(f->q->card, 5, "fp");
 				QETH_CARD_TEXT_(f->q->card, 5, "%lx", (long) f);
+
+				if (forced_cleanup)
+					qeth_notify_skbs(c->q, c,
+							 TX_NOTIFY_GENERALERROR);
 				/* release here to avoid interleaving between
 				   outbound tasklet and inbound tasklet
 				   regarding notifications and lifecycle */
@@ -1210,9 +1214,6 @@ static void qeth_notify_skbs(struct qeth_qdio_out_q *q,
 static void qeth_release_skbs(struct qeth_qdio_out_buffer *buf)
 {
 	struct sk_buff *skb;
-
-	if (atomic_read(&buf->state) == QETH_QDIO_BUF_PENDING)
-		qeth_notify_skbs(buf->q, buf, TX_NOTIFY_GENERALERROR);
 
 	while ((skb = __skb_dequeue(&buf->skb_list)) != NULL)
 		consume_skb(skb);
