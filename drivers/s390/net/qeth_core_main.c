@@ -258,6 +258,9 @@ void qeth_clear_working_pool_list(struct qeth_card *card)
 			list_del(&pool_entry->list);
 	}
 
+	if (!queue)
+		return;
+
 	for (i = 0; i < ARRAY_SIZE(queue->bufs); i++)
 		queue->bufs[i].pool_entry = NULL;
 }
@@ -460,6 +463,10 @@ static void qeth_cleanup_handled_pending(struct qeth_qdio_out_q *q, int bidx,
 				struct qeth_qdio_out_buffer *f = c;
 				QETH_CARD_TEXT(f->q->card, 5, "fp");
 				QETH_CARD_TEXT_(f->q->card, 5, "%lx", (long) f);
+
+				if (forced_cleanup)
+					qeth_notify_skbs(c->q, c,
+							 TX_NOTIFY_GENERALERROR);
 				/* release here to avoid interleaving between
 				   outbound tasklet and inbound tasklet
 				   regarding notifications and lifecycle */
@@ -1210,9 +1217,6 @@ static void qeth_notify_skbs(struct qeth_qdio_out_q *q,
 static void qeth_release_skbs(struct qeth_qdio_out_buffer *buf)
 {
 	struct sk_buff *skb;
-
-	if (atomic_read(&buf->state) == QETH_QDIO_BUF_PENDING)
-		qeth_notify_skbs(buf->q, buf, TX_NOTIFY_GENERALERROR);
 
 	while ((skb = __skb_dequeue(&buf->skb_list)) != NULL)
 		consume_skb(skb);
@@ -2447,20 +2451,33 @@ static void qeth_free_output_queue(struct qeth_qdio_out_q *q)
 static struct qeth_qdio_out_q *qeth_alloc_qdio_out_buf(void)
 {
 	struct qeth_qdio_out_q *q = kzalloc(sizeof(*q), GFP_KERNEL);
+	unsigned int i;
 
 	if (!q)
 		return NULL;
 
-	if (qdio_alloc_buffers(q->qdio_bufs, QDIO_MAX_BUFFERS_PER_Q)) {
-		kfree(q);
-		return NULL;
+	if (qdio_alloc_buffers(q->qdio_bufs, QDIO_MAX_BUFFERS_PER_Q))
+		goto err_qdio_bufs;
+
+	for (i = 0; i < QDIO_MAX_BUFFERS_PER_Q; i++) {
+		if (qeth_init_qdio_out_buf(q, i))
+			goto err_out_bufs;
 	}
+
 	return q;
+
+err_out_bufs:
+	while (i > 0)
+		kmem_cache_free(qeth_qdio_outbuf_cache, q->bufs[--i]);
+	qdio_free_buffers(q->qdio_bufs, QDIO_MAX_BUFFERS_PER_Q);
+err_qdio_bufs:
+	kfree(q);
+	return NULL;
 }
 
 static int qeth_alloc_qdio_buffers(struct qeth_card *card)
 {
-	int i, j;
+	unsigned int i;
 
 	QETH_DBF_TEXT(SETUP, 2, "allcqdbf");
 
@@ -2490,12 +2507,6 @@ static int qeth_alloc_qdio_buffers(struct qeth_card *card)
 		QETH_DBF_TEXT_(SETUP, 2, "outq %i", i);
 		QETH_DBF_HEX(SETUP, 2, &card->qdio.out_qs[i], sizeof(void *));
 		card->qdio.out_qs[i]->queue_no = i;
-		/* give outbound qeth_qdio_buffers their qdio_buffers */
-		for (j = 0; j < QDIO_MAX_BUFFERS_PER_Q; ++j) {
-			WARN_ON(card->qdio.out_qs[i]->bufs[j] != NULL);
-			if (qeth_init_qdio_out_buf(card->qdio.out_qs[i], j))
-				goto out_freeoutqbufs;
-		}
 	}
 
 	/* completion */
@@ -2504,13 +2515,6 @@ static int qeth_alloc_qdio_buffers(struct qeth_card *card)
 
 	return 0;
 
-out_freeoutqbufs:
-	while (j > 0) {
-		--j;
-		kmem_cache_free(qeth_qdio_outbuf_cache,
-				card->qdio.out_qs[i]->bufs[j]);
-		card->qdio.out_qs[i]->bufs[j] = NULL;
-	}
 out_freeoutq:
 	while (i > 0)
 		qeth_free_output_queue(card->qdio.out_qs[--i]);
