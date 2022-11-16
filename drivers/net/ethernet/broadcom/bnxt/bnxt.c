@@ -6930,14 +6930,22 @@ static int bnxt_hwrm_port_qstats_ext(struct bnxt *bp)
 		pri2cos = &resp2->pri0_cos_queue_id;
 		for (i = 0; i < 8; i++) {
 			u8 queue_id = pri2cos[i];
+			u8 queue_idx;
 
+			/* Per port queue IDs start from 0, 10, 20, etc */
+			queue_idx = queue_id % 10;
+			if (queue_idx > BNXT_MAX_QUEUE) {
+				bp->pri2cos_valid = false;
+				goto qstats_done;
+			}
 			for (j = 0; j < bp->max_q; j++) {
 				if (bp->q_ids[j] == queue_id)
-					bp->pri2cos[i] = j;
+					bp->pri2cos_idx[i] = queue_idx;
 			}
 		}
 		bp->pri2cos_valid = 1;
 	}
+qstats_done:
 	mutex_unlock(&bp->hwrm_cmd_lock);
 	return rc;
 }
@@ -10826,12 +10834,12 @@ init_err_cleanup_tc:
 	bnxt_clear_int_mode(bp);
 
 init_err_pci_clean:
-	bnxt_free_hwrm_short_cmd_req(bp);
-	bnxt_free_hwrm_resources(bp);
-	bnxt_free_ctx_mem(bp);
-	kfree(bp->ctx);
-	bp->ctx = NULL;
-	bnxt_cleanup_pci(bp);
+        bnxt_free_hwrm_short_cmd_req(bp);
+        bnxt_free_hwrm_resources(bp);
+        bnxt_cleanup_pci(bp);
+        bnxt_free_ctx_mem(bp);
+        kfree(bp->ctx);
+        bp->ctx = NULL;
 
 init_err_free:
 	free_netdev(dev);
