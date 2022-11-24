@@ -3404,7 +3404,7 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
 	vcpu_load(vcpu);
 
 	/* user space knows about this interface - let it control the state */
-	vcpu->kvm->arch.user_cpu_state_ctrl = 1;
+	kvm_s390_set_user_cpu_state_ctrl(vcpu->kvm);
 
 	switch (mp_state->mp_state) {
 	case KVM_MP_STATE_STOPPED:

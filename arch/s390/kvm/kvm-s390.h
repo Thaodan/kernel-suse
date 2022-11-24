@@ -181,6 +181,15 @@ static inline int kvm_s390_user_cpu_state_ctrl(struct kvm *kvm)
 	return kvm->arch.user_cpu_state_ctrl != 0;
 }
 
+static inline void kvm_s390_set_user_cpu_state_ctrl(struct kvm *kvm)
+{
+	if (kvm->arch.user_cpu_state_ctrl)
+		return;
+
+	VM_EVENT(kvm, 3, "%s", "ENABLE: Userspace CPU state control");
+	kvm->arch.user_cpu_state_ctrl = 1;
+}
+
 /* implemented in interrupt.c */
 int kvm_s390_handle_wait(struct kvm_vcpu *vcpu);
 void kvm_s390_vcpu_wakeup(struct kvm_vcpu *vcpu);
