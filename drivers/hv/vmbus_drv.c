@@ -1089,25 +1089,58 @@ void vmbus_on_msg_dpc(unsigned long data)
 		/*
 		 * The host can generate a rescind message while we
 		 * may still be handling the original offer. We deal with
-		 * this condition by ensuring the processing is done on the
-		 * same CPU.
+		 * this condition by relying on the synchronization provided
+		 * by offer_in_progress and by channel_mutex.  See also the
+		 * inline comments in vmbus_onoffer_rescind().
 		 */
 		switch (hdr->msgtype) {
 		case CHANNELMSG_RESCIND_CHANNELOFFER:
 			/*
 			 * If we are handling the rescind message;
 			 * schedule the work on the global work queue.
+			 *
+			 * The OFFER message and the RESCIND message should
+			 * not be handled by the same serialized work queue,
+			 * because the OFFER handler may call vmbus_open(),
+			 * which tries to open the channel by sending an
+			 * OPEN_CHANNEL message to the host and waits for
+			 * the host's response; however, if the host has
+			 * rescinded the channel before it receives the
+			 * OPEN_CHANNEL message, the host just silently
+			 * ignores the OPEN_CHANNEL message; as a result,
+			 * the guest's OFFER handler hangs for ever, if we
+			 * handle the RESCIND message in the same serialized
+			 * work queue: the RESCIND handler can not start to
+			 * run before the OFFER handler finishes.
 			 */
-			schedule_work_on(vmbus_connection.connect_cpu,
-					 &ctx->work);
+			schedule_work(&ctx->work);
 			break;
 
 		case CHANNELMSG_OFFERCHANNEL:
+			/*
+			 * The host sends the offer message of a given channel
+			 * before sending the rescind message of the same
+			 * channel.  These messages are sent to the guest's
+			 * connect CPU; the guest then starts processing them
+			 * in the tasklet handler on this CPU:
+			 *
+			 * VMBUS_CONNECT_CPU
+			 *
+			 * [vmbus_on_msg_dpc()]
+			 * atomic_inc()  // CHANNELMSG_OFFERCHANNEL
+			 * queue_work()
+			 * ...
+			 * [vmbus_on_msg_dpc()]
+			 * schedule_work()  // CHANNELMSG_RESCIND_CHANNELOFFER
+			 *
+			 * We rely on the memory-ordering properties of the
+			 * queue_work() and schedule_work() primitives, which
+			 * guarantee that the atomic increment will be visible
+			 * to the CPUs which will execute the offer & rescind
+			 * works by the time these works will start execution.
+			 */
 			atomic_inc(&vmbus_connection.offer_in_progress);
-			queue_work_on(vmbus_connection.connect_cpu,
-				      vmbus_connection.work_queue,
-				      &ctx->work);
-			break;
+			fallthrough;
 
 		default:
 			queue_work(vmbus_connection.work_queue, &ctx->work);
@@ -1151,23 +1184,9 @@ static void vmbus_force_channel_rescinded(struct vmbus_channel *channel)
 
 	INIT_WORK(&ctx->work, vmbus_onmessage_work);
 
-	queue_work_on(vmbus_connection.connect_cpu,
-		      vmbus_connection.work_queue,
-		      &ctx->work);
+	queue_work(vmbus_connection.work_queue, &ctx->work);
 }
 #endif /* CONFIG_PM_SLEEP */
-
-/*
- * Direct callback for channels using other deferred processing
- */
-static void vmbus_channel_isr(struct vmbus_channel *channel)
-{
-	void (*callback_fn)(void *);
-
-	callback_fn = READ_ONCE(channel->onchannel_callback);
-	if (likely(callback_fn != NULL))
-		(*callback_fn)(channel->channel_callback_context);
-}
 
 /*
  * Schedule all channels with events pending
@@ -1199,6 +1218,7 @@ static void vmbus_chan_sched(struct hv_per_cpu_context *hv_cpu)
 		return;
 
 	for_each_set_bit(relid, recv_int_page, maxbits) {
+		void (*callback_fn)(void *context);
 		struct vmbus_channel *channel;
 
 		if (!sync_test_and_clear_bit(relid, recv_int_page))
@@ -1208,33 +1228,54 @@ static void vmbus_chan_sched(struct hv_per_cpu_context *hv_cpu)
 		if (relid == 0)
 			continue;
 
+		/*
+		 * Pairs with the kfree_rcu() in vmbus_chan_release().
+		 * Guarantees that the channel data structure doesn't
+		 * get freed while the channel pointer below is being
+		 * dereferenced.
+		 */
 		rcu_read_lock();
 
 		/* Find channel based on relid */
-		list_for_each_entry_rcu(channel, &hv_cpu->chan_list, percpu_list) {
-			if (channel->offermsg.child_relid != relid)
-				continue;
+		channel = relid2channel(relid);
+		if (channel == NULL)
+			goto sched_unlock_rcu;
 
-			if (channel->rescind)
-				continue;
+		if (channel->rescind)
+			goto sched_unlock_rcu;
 
-			trace_vmbus_chan_sched(channel);
+		/*
+		 * Make sure that the ring buffer data structure doesn't get
+		 * freed while we dereference the ring buffer pointer.  Test
+		 * for the channel's onchannel_callback being NULL within a
+		 * sched_lock critical section.  See also the inline comments
+		 * in vmbus_reset_channel_cb().
+		 */
+		spin_lock(&channel->sched_lock);
 
-			++channel->interrupts;
+		callback_fn = channel->onchannel_callback;
+		if (unlikely(callback_fn == NULL))
+			goto sched_unlock;
 
-			switch (channel->callback_mode) {
-			case HV_CALL_ISR:
-				vmbus_channel_isr(channel);
-				break;
+		trace_vmbus_chan_sched(channel);
 
-			case HV_CALL_BATCHED:
-				hv_begin_read(&channel->inbound);
-				/* fallthrough */
-			case HV_CALL_DIRECT:
-				tasklet_schedule(&channel->callback_event);
-			}
+		++channel->interrupts;
+
+		switch (channel->callback_mode) {
+		case HV_CALL_ISR:
+			(*callback_fn)(channel->channel_callback_context);
+			break;
+
+		case HV_CALL_BATCHED:
+			hv_begin_read(&channel->inbound);
+			fallthrough;
+		case HV_CALL_DIRECT:
+			tasklet_schedule(&channel->callback_event);
 		}
 
+sched_unlock:
+		spin_unlock(&channel->sched_lock);
+sched_unlock_rcu:
 		rcu_read_unlock();
 	}
 }
@@ -2229,9 +2270,12 @@ static int vmbus_bus_suspend(struct device *dev)
 
 	list_for_each_entry(channel, &vmbus_connection.chn_list, listentry) {
 		/*
-		 * Invalidate the field. Upon resume, vmbus_onoffer() will fix
-		 * up the field, and the other fields (if necessary).
+		 * Remove the channel from the array of channels and invalidate
+		 * the channel's relid.  Upon resume, vmbus_onoffer() will fix
+		 * up the relid (and other fields, if necessary) and add the
+		 * channel back to the array.
 		 */
+		vmbus_channel_unmap_relid(channel);
 		channel->offermsg.child_relid = INVALID_RELID;
 
 		if (is_hvsock_channel(channel)) {
@@ -2473,13 +2517,19 @@ static void __exit vmbus_exit(void)
 		tasklet_kill(&hv_cpu->msg_dpc);
 	}
 	vmbus_free_channels();
+	kfree(vmbus_connection.channels);
 
 	if (ms_hyperv.misc_features & HV_FEATURE_GUEST_CRASH_MSR_AVAILABLE) {
 		kmsg_dump_unregister(&hv_kmsg_dumper);
 		unregister_die_notifier(&hyperv_die_block);
-		atomic_notifier_chain_unregister(&panic_notifier_list,
-						 &hyperv_panic_block);
 	}
+
+	/*
+	 * The panic notifier is always registered, hence we should
+	 * also unconditionally unregister it here as well.
+	 */
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &hyperv_panic_block);
 
 	free_page((unsigned long)hv_panic_page);
 	unregister_sysctl_table(hv_ctl_table_hdr);
