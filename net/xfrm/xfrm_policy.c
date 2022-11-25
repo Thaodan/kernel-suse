@@ -1598,7 +1598,7 @@ static void xfrm_bundle_flo_delete(struct flow_cache_object *flo)
 
 	/* Mark DST_OBSOLETE_DEAD to fail the next xfrm_dst_check() */
 	dst->obsolete = DST_OBSOLETE_DEAD;
-	dst_release_immediate(dst);
+	dst_release(dst);
 }
 
 static const struct flow_cache_ops xfrm_bundle_fc_ops = {
