@@ -1022,7 +1022,7 @@ static void storvsc_handle_error(struct vmscsi_request *vm_srb,
 	 */
 	wrk = kmalloc(sizeof(struct storvsc_scan_work), GFP_ATOMIC);
 	if (!wrk) {
-		set_host_byte(scmnd, DID_TARGET_FAILURE);
+		set_host_byte(scmnd, DID_BAD_TARGET);
 		return;
 	}
 
