@@ -420,6 +420,13 @@ int xenbus_grant_ring(struct xenbus_device *dev, void *vaddr,
 	}
 
 	for (i = 0; i < nr_pages; i++) {
+		unsigned long gfn;
+
+		if (is_vmalloc_addr(vaddr))
+			gfn = pfn_to_gfn(vmalloc_to_pfn(vaddr));
+		else
+			gfn = virt_to_gfn(vaddr);
+
 		grefs[i] = gnttab_claim_grant_reference(&gref_head);
 		gnttab_grant_foreign_access_ref(grefs[i], dev->otherend_id,
 						virt_to_gfn(vaddr), 0);
