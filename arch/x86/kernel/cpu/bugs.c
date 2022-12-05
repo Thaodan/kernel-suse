@@ -1353,49 +1353,65 @@ static enum spectre_v2_mitigation __init spectre_v2_select_retpoline(void)
 
 static void __init spectre_v2_determine_rsb_fill_type_at_vmexit(enum spectre_v2_mitigation mode)
 {
-	/*
-	 * Similar to context switches, there are two types of RSB attacks
-	 * after VM exit:
-	 *
-	 * 1) RSB underflow
-	 *
-	 * 2) Poisoned RSB entry
-	 *
-	 * When retpoline is enabled, both are mitigated by filling/clearing
-	 * the RSB.
-	 *
-	 * When IBRS is enabled, while #1 would be mitigated by the IBRS branch
-	 * prediction isolation protections, RSB still needs to be cleared
-	 * because of #2.  Note that SMEP provides no protection here, unlike
-	 * user-space-poisoned RSB entries.
-	 *
-	 * eIBRS should protect against RSB poisoning, but if the EIBRS_PBRSB
-	 * bug is present then a LITE version of RSB protection is required,
-	 * just a single call needs to retire before a RET is executed.
-	 */
-	switch (mode) {
-	case SPECTRE_V2_NONE:
-		return;
+       /*
+        * Similar to context switches, there are two types of RSB attacks
+        * after VM exit:
+        *
+        * 1) RSB underflow
+        *
+        * 2) Poisoned RSB entry
+        *
+        * When retpoline is enabled, both are mitigated by filling/clearing
+        * the RSB.
+        *
+        * When IBRS is enabled, while #1 would be mitigated by the IBRS branch
+        * prediction isolation protections, RSB still needs to be cleared
+        * because of #2.  Note that SMEP provides no protection here, unlike
+        * user-space-poisoned RSB entries.
+        *
+        * eIBRS should protect against RSB poisoning, but if the EIBRS_PBRSB
+        * bug is present then a LITE version of RSB protection is required,
+        * just a single call needs to retire before a RET is executed.
+        */
+       switch (mode) {
+       case SPECTRE_V2_NONE:
+               return;
 
-	case SPECTRE_V2_EIBRS_LFENCE:
-	case SPECTRE_V2_EIBRS:
-		if (boot_cpu_has_bug(X86_BUG_EIBRS_PBRSB)) {
-			setup_force_cpu_cap(X86_FEATURE_RSB_VMEXIT_LITE);
-			pr_info("Spectre v2 / PBRSB-eIBRS: Retire a single CALL on VMEXIT\n");
-		}
-		return;
+       case SPECTRE_V2_EIBRS_LFENCE:
+       case SPECTRE_V2_EIBRS:
+               if (boot_cpu_has_bug(X86_BUG_EIBRS_PBRSB)) {
+                       setup_force_cpu_cap(X86_FEATURE_RSB_VMEXIT_LITE);
+                       pr_info("Spectre v2 / PBRSB-eIBRS: Retire a single CALL on VMEXIT\n");
+               }
+               return;
 
-	case SPECTRE_V2_EIBRS_RETPOLINE:
-	case SPECTRE_V2_RETPOLINE:
-	case SPECTRE_V2_LFENCE:
-	case SPECTRE_V2_IBRS:
-		setup_force_cpu_cap(X86_FEATURE_RSB_VMEXIT);
-		pr_info("Spectre v2 / SpectreRSB : Filling RSB on VMEXIT\n");
-		return;
-	}
+       case SPECTRE_V2_EIBRS_RETPOLINE:
+       case SPECTRE_V2_RETPOLINE:
+       case SPECTRE_V2_LFENCE:
+       case SPECTRE_V2_IBRS:
+               setup_force_cpu_cap(X86_FEATURE_RSB_VMEXIT);
+               pr_info("Spectre v2 / SpectreRSB : Filling RSB on VMEXIT\n");
+               return;
+       }
 
-	pr_warn_once("Unknown Spectre v2 mode, disabling RSB mitigation at VM exit");
-	dump_stack();
+       pr_warn_once("Unknown Spectre v2 mode, disabling RSB mitigation at VM exit");
+       dump_stack();
+}
+
+/* Disable in-kernel use of non-RSB RET predictors */
+static void __init spec_ctrl_disable_kernel_rrsba(void)
+{
+       u64 ia32_cap;
+
+       if (!boot_cpu_has(X86_FEATURE_RRSBA_CTRL))
+               return;
+
+       ia32_cap = x86_read_arch_cap_msr();
+
+       if (ia32_cap & ARCH_CAP_RRSBA) {
+               x86_spec_ctrl_base |= SPEC_CTRL_RRSBA_DIS_S;
+               wrmsrl(MSR_IA32_SPEC_CTRL, x86_spec_ctrl_base);
+       }
 }
 
 static void __init spectre_v2_select_mitigation(void)
@@ -1490,6 +1506,14 @@ static void __init spectre_v2_select_mitigation(void)
 		setup_force_cpu_cap(X86_FEATURE_RETPOLINE);
 		break;
 	}
+
+	/*
+	 * Disable alternate RSB predictions in kernel when indirect CALLs and
+	 * JMPs gets protection against BHI and Intramode-BTI, but RET
+	 * prediction from a non-RSB predictor is still a risk.
+	 */
+	if (mode == SPECTRE_V2_RETPOLINE)
+		spec_ctrl_disable_kernel_rrsba();
 
 	spectre_v2_enabled = mode;
 	pr_info("%s\n", spectre_v2_strings[mode]);
