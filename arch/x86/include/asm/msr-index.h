@@ -131,6 +131,13 @@
 						 * bit available to control VERW
 						 * behavior.
 						 */
+#define ARCH_CAP_RRSBA			BIT(19)	/*
+						 * Indicates RET may use predictors
+						 * other than the RSB. With eIBRS
+						 * enabled predictions in kernel mode
+						 * are restricted to targets in
+						 * kernel.
+						 */
 #define ARCH_CAP_PBRSB_NO		BIT(24)	/*
 						 * Not susceptible to Post-Barrier
 						 * Return Stack Buffer Predictions.
@@ -140,13 +147,6 @@
 #define L1D_FLUSH			BIT(0)	/*
 						 * Writeback and invalidate the
 						 * L1 data cache.
-						 */
-#define ARCH_CAP_RRSBA			BIT(19)	/*
-						 * Indicates RET may use predictors
-						 * other than the RSB. With eIBRS
-						 * enabled predictions in kernel mode
-						 * are restricted to targets in
-						 * kernel.
 						 */
 
 #define MSR_IA32_BBL_CR_CTL		0x00000119

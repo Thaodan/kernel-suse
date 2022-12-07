@@ -1401,17 +1401,17 @@ static void __init spectre_v2_determine_rsb_fill_type_at_vmexit(enum spectre_v2_
 /* Disable in-kernel use of non-RSB RET predictors */
 static void __init spec_ctrl_disable_kernel_rrsba(void)
 {
-       u64 ia32_cap;
+	u64 ia32_cap;
 
-       if (!boot_cpu_has(X86_FEATURE_RRSBA_CTRL))
-               return;
+	if (!boot_cpu_has(X86_FEATURE_RRSBA_CTRL))
+		return;
 
-       ia32_cap = x86_read_arch_cap_msr();
+	ia32_cap = x86_read_arch_cap_msr();
 
-       if (ia32_cap & ARCH_CAP_RRSBA) {
-               x86_spec_ctrl_base |= SPEC_CTRL_RRSBA_DIS_S;
-               wrmsrl(MSR_IA32_SPEC_CTRL, x86_spec_ctrl_base);
-       }
+	if (ia32_cap & ARCH_CAP_RRSBA) {
+		x86_spec_ctrl_base |= SPEC_CTRL_RRSBA_DIS_S;
+		write_spec_ctrl_current(x86_spec_ctrl_base, true);
+	}
 }
 
 static void __init spectre_v2_select_mitigation(void)
@@ -1512,7 +1512,9 @@ static void __init spectre_v2_select_mitigation(void)
 	 * JMPs gets protection against BHI and Intramode-BTI, but RET
 	 * prediction from a non-RSB predictor is still a risk.
 	 */
-	if (mode == SPECTRE_V2_RETPOLINE)
+	if (mode == SPECTRE_V2_EIBRS_LFENCE ||
+	    mode == SPECTRE_V2_EIBRS_RETPOLINE ||
+	    mode == SPECTRE_V2_RETPOLINE)
 		spec_ctrl_disable_kernel_rrsba();
 
 	spectre_v2_enabled = mode;
