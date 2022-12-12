@@ -1043,7 +1043,6 @@ int qeth_set_access_ctrl_online(struct qeth_card *card, int fallback);
 int qeth_configure_cq(struct qeth_card *, enum qeth_cq);
 int qeth_hw_trap(struct qeth_card *, enum qeth_diags_trap_action);
 void qeth_trace_features(struct qeth_card *);
-void qeth_close_dev(struct qeth_card *);
 int qeth_send_setassparms(struct qeth_card *, struct qeth_cmd_buffer *, __u16,
 			  long,
 			  int (*reply_cb)(struct qeth_card *,
