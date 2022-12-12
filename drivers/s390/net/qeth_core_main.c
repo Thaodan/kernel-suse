@@ -76,8 +76,6 @@ static void qeth_notify_skbs(struct qeth_qdio_out_q *queue,
 static void qeth_release_skbs(struct qeth_qdio_out_buffer *buf);
 static int qeth_init_qdio_out_buf(struct qeth_qdio_out_q *, int);
 
-static struct workqueue_struct *qeth_wq;
-
 int qeth_card_hw_is_reachable(struct qeth_card *card)
 {
 	return (card->state == CARD_STATE_SOFTSETUP) ||
@@ -95,12 +93,6 @@ static void qeth_close_dev_handler(struct work_struct *work)
 	dev_close(card->dev);
 	rtnl_unlock();
 	ccwgroup_set_offline(card->gdev);
-}
-
-static void qeth_close_dev(struct qeth_card *card)
-{
-	QETH_CARD_TEXT(card, 2, "cldevsubm");
-	queue_work(qeth_wq, &card->close_dev_work);
 }
 
 static const char *qeth_get_cardname(struct qeth_card *card)
@@ -682,7 +674,7 @@ static struct qeth_ipa_cmd *qeth_check_ipa_data(struct qeth_card *card,
 			dev_err(&card->gdev->dev,
 				"Interface %s is down because the adjacent port is no longer in reflective relay mode\n",
 				QETH_CARD_IFNAME(card));
-			qeth_close_dev(card);
+			schedule_work(&card->close_dev_work);
 		} else {
 			dev_warn(&card->gdev->dev,
 				 "The link for interface %s on CHPID 0x%X failed\n",
@@ -6792,12 +6784,6 @@ static int __init qeth_core_init(void)
 	INIT_LIST_HEAD(&qeth_core_card_list.list);
 	rwlock_init(&qeth_core_card_list.rwlock);
 
-	qeth_wq = create_singlethread_workqueue("qeth_wq");
-	if (!qeth_wq) {
-		rc = -ENOMEM;
-		goto out_err;
-	}
-
 	rc = qeth_register_dbf_views();
 	if (rc)
 		goto dbf_err;
@@ -6839,8 +6825,6 @@ slab_err:
 register_err:
 	qeth_unregister_dbf_views();
 dbf_err:
-	destroy_workqueue(qeth_wq);
-out_err:
 	pr_err("Initializing the qeth device driver failed\n");
 	return rc;
 }
@@ -6848,7 +6832,6 @@ out_err:
 static void __exit qeth_core_exit(void)
 {
 	qeth_clear_dbf_list();
-	destroy_workqueue(qeth_wq);
 	ccwgroup_driver_unregister(&qeth_core_ccwgroup_driver);
 	ccw_driver_unregister(&qeth_ccw_driver);
 	kmem_cache_destroy(qeth_qdio_outbuf_cache);
