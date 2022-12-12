@@ -1123,7 +1123,8 @@ static int qeth_l2_recover(void *ptr)
 		dev_info(&card->gdev->dev,
 			"Device successfully recovered!\n");
 	else {
-		ccwgroup_set_offline(card->gdev);
+		__qeth_l2_set_offline(card->gdev, true);
+		ccwgroup_set_offline(card->gdev, false);
 		dev_warn(&card->gdev->dev, "The qeth device driver "
 				"failed to recover an error on the device\n");
 	}
