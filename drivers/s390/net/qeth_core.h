@@ -823,7 +823,6 @@ struct qeth_card {
 	struct napi_struct napi;
 	struct qeth_rx rx;
 	struct delayed_work buffer_reclaim_work;
-	struct work_struct close_dev_work;
 };
 
 struct qeth_card_list_struct {
