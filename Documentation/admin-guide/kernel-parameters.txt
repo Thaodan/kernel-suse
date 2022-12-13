@@ -2506,6 +2506,7 @@
 					       mmio_stale_data=off [X86]
 					       no_entry_flush [PPC]
 					       no_uaccess_flush [PPC]
+					       retbleed=off [X86]
 
 			auto (default)
 				Mitigate all CPU vulnerabilities, but leave SMT
@@ -2523,6 +2524,7 @@
 					       mds=full,nosmt [X86]
 					       tsx_async_abort=full,nosmt [X86]
 					       mmio_stale_data=full,nosmt [X86]
+					       retbleed=auto,nosmt [X86]
 
 	mminit_loglevel=
 			[KNL] When CONFIG_DEBUG_MEMORY_INIT is set, this
@@ -4016,6 +4018,7 @@
 			Speculative Code Execution with Return Instructions)
 			vulnerability.
 
+			off          - no mitigation
 			auto         - automatically select a migitation
 			auto,nosmt   - automatically select a mitigation,
 				       disabling SMT if necessary for
@@ -5160,6 +5163,10 @@
 				unnecessary even if the host did not respond to
 				the unplug protocol
 			never -- do not unplug even if version check succeeds
+
+	xen_legacy_crash	[X86,XEN]
+			Crash from Xen panic notifier, without executing late
+			panic() code such as dumping handler.
 
 	xen_nopvspin	[X86,XEN]
 			Disables the ticketlock slowpath using Xen PV

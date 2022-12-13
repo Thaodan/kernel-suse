@@ -828,7 +828,6 @@ static void qeth_l2_remove_device(struct ccwgroup_device *cgdev)
 	if (cgdev->state == CCWGROUP_ONLINE)
 		qeth_l2_set_offline(cgdev);
 
-	cancel_work_sync(&card->close_dev_work);
 	if (qeth_netdev_is_registered(card->dev))
 		unregister_netdev(card->dev);
 }
@@ -1124,7 +1123,8 @@ static int qeth_l2_recover(void *ptr)
 		dev_info(&card->gdev->dev,
 			"Device successfully recovered!\n");
 	else {
-		qeth_close_dev(card);
+		__qeth_l2_set_offline(card->gdev, true);
+		ccwgroup_set_offline(card->gdev, false);
 		dev_warn(&card->gdev->dev, "The qeth device driver "
 				"failed to recover an error on the device\n");
 	}
