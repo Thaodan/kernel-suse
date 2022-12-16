@@ -89,7 +89,6 @@ static struct ctl_table sctp_table[] = {
  */
 #define SCTP_RTO_MIN_IDX       0
 #define SCTP_RTO_MAX_IDX       1
-#define SCTP_PF_RETRANS_IDX    2
 
 static struct ctl_table sctp_net_table[] = {
 	[SCTP_RTO_MIN_IDX] = {
@@ -109,15 +108,6 @@ static struct ctl_table sctp_net_table[] = {
 		.proc_handler	= proc_sctp_do_rto_max,
 		.extra1         = &init_net.sctp.rto_min,
 		.extra2         = &timer_max
-	},
-	[SCTP_PF_RETRANS_IDX] = {
-		.procname	= "pf_retrans",
-		.data		= &init_net.sctp.pf_retrans,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= &init_net.sctp.ps_retrans,
 	},
 	{
 		.procname	= "rto_initial",
@@ -221,6 +211,15 @@ static struct ctl_table sctp_net_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ONE,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "pf_retrans",
+		.data		= &init_net.sctp.pf_retrans,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_INT_MAX,
 	},
 	{
@@ -483,7 +482,6 @@ int sctp_sysctl_net_register(struct net *net)
 
 	table[SCTP_RTO_MIN_IDX].extra2 = &net->sctp.rto_max;
 	table[SCTP_RTO_MAX_IDX].extra1 = &net->sctp.rto_min;
-	table[SCTP_PS_RETRANS_IDX].extra1 = &net->sctp.pf_retrans;
 
 	net->sctp.sysctl_header = register_net_sysctl(net, "net/sctp", table);
 	if (net->sctp.sysctl_header == NULL) {
