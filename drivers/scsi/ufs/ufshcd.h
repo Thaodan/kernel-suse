@@ -650,7 +650,6 @@ struct ufs_hba {
 	u32 saved_err;
 	u32 saved_uic_err;
 	struct ufs_stats ufs_stats;
-	bool silence_err_logs;
 
 	/* Device management request data */
 	struct ufs_dev_cmd dev_cmd;
@@ -708,6 +707,9 @@ struct ufs_hba {
 	struct rw_semaphore clk_scaling_lock;
 	struct ufs_desc_size desc_size;
 	atomic_t scsi_block_reqs_cnt;
+#ifndef	__GENKSYMS__
+	bool silence_err_logs;
+#endif
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
