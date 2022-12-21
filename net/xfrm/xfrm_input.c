@@ -506,12 +506,15 @@ EXPORT_SYMBOL(xfrm_input_resume);
 
 static void xfrm_trans_reinject(unsigned long data)
 {
+	unsigned long flags;
 	struct xfrm_trans_tasklet *trans = (void *)data;
 	struct sk_buff_head queue;
 	struct sk_buff *skb;
 
 	__skb_queue_head_init(&queue);
+	spin_lock_irqsave(&trans->queue.lock, flags);
 	skb_queue_splice_init(&trans->queue, &queue);
+	spin_unlock_irqrestore(&trans->queue.lock, flags);
 
 	while ((skb = __skb_dequeue(&queue)))
 		XFRM_TRANS_SKB_CB(skb)->finish(dev_net(skb->dev), NULL, skb);
@@ -529,7 +532,7 @@ int xfrm_trans_queue(struct sk_buff *skb,
 		return -ENOBUFS;
 
 	XFRM_TRANS_SKB_CB(skb)->finish = finish;
-	__skb_queue_tail(&trans->queue, skb);
+	skb_queue_tail(&trans->queue, skb);
 	tasklet_schedule(&trans->tasklet);
 	return 0;
 }
@@ -554,7 +557,7 @@ void __init xfrm_input_init(void)
 		struct xfrm_trans_tasklet *trans;
 
 		trans = &per_cpu(xfrm_trans_tasklet, i);
-		__skb_queue_head_init(&trans->queue);
+		skb_queue_head_init(&trans->queue);
 		tasklet_init(&trans->tasklet, xfrm_trans_reinject,
 			     (unsigned long)trans);
 	}
