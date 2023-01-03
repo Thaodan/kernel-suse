@@ -3559,7 +3559,7 @@ nfsd4_encode_read(struct nfsd4_compoundres *resp, __be32 nfserr,
 	if (resp->xdr.buf->page_len &&
 	    test_bit(RQ_SPLICE_OK, &resp->rqstp->rq_flags)) {
 		WARN_ON_ONCE(1);
-		nfserr = nfserr_resource;
+		nfserr = nfserr_serverfault;
 		goto out;
 	}
 	xdr_commit_encode(xdr);
