@@ -1837,10 +1837,20 @@ _nfs4_opendata_to_nfs4_state(struct nfs4_opendata *data)
 		goto out;
 	}
 
-	ret = -EAGAIN;
-	if (!(data->f_attr.valid & NFS_ATTR_FATTR))
-		goto err;
-	inode = nfs_fhget(data->dir->d_sb, &data->o_res.fh, &data->f_attr, data->f_label);
+	if (data->f_attr.valid & NFS_ATTR_FATTR) {
+		inode = nfs_fhget(data->dir->d_sb, &data->o_res.fh,
+				  &data->f_attr, data->f_label);
+	} else {
+		/* We don't have the fileid and so cannot do inode
+		 * lookup.  If we already have this state open we MUST
+		 * update the seqid to match the server, so we need to
+		 * find it if possible.
+		 */
+		inode = nfs4_get_inode_by_stateid(&data->o_res.stateid,
+						  data->owner);
+		if (!inode)
+			inode = ERR_PTR(-EAGAIN);
+	}
 	ret = PTR_ERR(inode);
 	if (IS_ERR(inode))
 		goto err;
