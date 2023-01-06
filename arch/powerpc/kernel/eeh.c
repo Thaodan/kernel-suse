@@ -497,7 +497,7 @@ int eeh_dev_check_failure(struct eeh_dev *edev)
 	rc = 1;
 	if (pe->state & EEH_PE_ISOLATED) {
 		pe->check_count++;
-		if (pe->check_count % EEH_MAX_FAILS == 0) {
+		if (pe->check_count == EEH_MAX_FAILS) {
 			pdn = eeh_dev_to_pdn(edev);
 			if (pdn->node)
 				location = of_get_property(pdn->node, "ibm,loc-code", NULL);
