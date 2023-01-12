@@ -5199,11 +5199,11 @@ static int ext4_do_update_inode(handle_t *handle,
 		raw_inode->i_file_acl_high =
 			cpu_to_le16(ei->i_file_acl >> 32);
 	raw_inode->i_file_acl_lo = cpu_to_le32(ei->i_file_acl);
-	if (ei->i_disksize != ext4_isize(raw_inode)) {
+	if (READ_ONCE(ei->i_disksize) != ext4_isize(raw_inode)) {
 		ext4_isize_set(raw_inode, ei->i_disksize);
 		need_datasync = 1;
 	}
-	if (ei->i_disksize > 0x7fffffffULL) {
+	if (READ_ONCE(ei->i_disksize) > 0x7fffffffULL) {
 		if (!ext4_has_feature_large_file(sb) ||
 				EXT4_SB(sb)->s_es->s_rev_level ==
 		    cpu_to_le32(EXT4_GOOD_OLD_REV))
