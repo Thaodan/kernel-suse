@@ -901,11 +901,7 @@ struct dwc3 {
 	struct phy		*usb2_generic_phy;
 	struct phy		*usb3_generic_phy;
 
-	bool			phys_ready;
-
 	struct ulpi		*ulpi;
-	bool			ulpi_ready;
-
 	void __iomem		*regs;
 	size_t			regs_size;
 
@@ -1021,6 +1017,10 @@ struct dwc3 {
 	unsigned		tx_de_emphasis:2;
 
 	u16			imod_interval;
+#ifndef __GENKSYMS__
+	bool			phys_ready;
+	bool			ulpi_ready;
+#endif
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))
