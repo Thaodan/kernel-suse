@@ -173,7 +173,7 @@ void iforce_process_packet(struct iforce *iforce, u16 cmd, unsigned char *data)
 		memcpy(iforce->edata, data, IFORCE_MAX_LENGTH);
 	}
 #endif
-	wake_up(&iforce->wait);
+	wake_up_all(&iforce->wait);
 
 	if (!iforce->type) {
 		being_used--;

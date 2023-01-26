@@ -140,6 +140,12 @@ struct iforce {
 #define TIME_SCALE(a)	(a)
 
 
+static inline void iforce_clear_xmit_and_wake(struct iforce *iforce)
+{
+	clear_bit(IFORCE_XMIT_RUNNING, iforce->xmit_flags);
+	wake_up_all(&iforce->wait);
+}
+
 /* Public functions */
 /* iforce-serio.c */
 void iforce_serial_xmit(struct iforce *iforce);
